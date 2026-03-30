@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "997366141601",
+    "project_id": "rohii-hostel-hunt",
+    "storage_bucket": "rohii-hostel-hunt.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:997366141601:android:36a7e7ba76e90acc52d6e0",
+        "android_client_info": {
+          "package_name": "com.example.rohii_hostel_hunt"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC7h1qLne35wA5_kMWxFOWZdnth8Kka-uM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
