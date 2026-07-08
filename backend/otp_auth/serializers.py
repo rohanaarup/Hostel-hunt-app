@@ -1,16 +1,11 @@
-"""
-otp_auth/serializers.py — OTP Request Serializers
-"""
 from rest_framework import serializers
-
 
 class SendOTPSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    full_name = serializers.CharField(max_length=150, min_length=2)
+    display_name = serializers.CharField(max_length=150, min_length=2)
 
     def validate_email(self, value):
         return value.strip().lower()
-
 
 class VerifyOTPSerializer(serializers.Serializer):
     email = serializers.EmailField()

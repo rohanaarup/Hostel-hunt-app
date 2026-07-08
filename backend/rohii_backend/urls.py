@@ -19,11 +19,11 @@ urlpatterns = [
     # Hostels
     path('api/hostels/', include('hostels.urls')),
 
+    # Rooms
+    path('api/rooms/', include('rooms.urls')),
+
     # Bookings
     path('api/bookings/', include('bookings.urls')),
-
-    # Reviews
-    path('api/reviews/', include('reviews.urls')),
 ]
 
 if settings.DEBUG:

@@ -1,8 +1,21 @@
-"""bookings/urls.py"""
 from django.urls import path
-from .views import BookingListCreateView, BookingDetailView
+from .views import (
+    StudentBookingListView,
+    BookingDetailView,
+    BookingCreateView,
+    OwnerBookingListView,
+    BookingStatusUpdateView,
+)
 
 urlpatterns = [
-    path('', BookingListCreateView.as_view(), name='booking-list-create'),
-    path('<int:pk>/', BookingDetailView.as_view(), name='booking-detail'),
+    # Student routes
+    path('my-bookings/', StudentBookingListView.as_view(), name='student-bookings'),
+    path('create/', BookingCreateView.as_view(), name='booking-create'),
+    
+    # Owner routes
+    path('hostel-bookings/', OwnerBookingListView.as_view(), name='owner-bookings'),
+    path('<uuid:pk>/update-status/', BookingStatusUpdateView.as_view(), name='booking-status-update'),
+    
+    # Shared
+    path('<uuid:pk>/', BookingDetailView.as_view(), name='booking-detail'),
 ]

@@ -1,44 +1,77 @@
-"""
-hostels/views.py — Hostel API Views
-
-GET /api/hostels/        — Paginated list with filtering + search
-GET /api/hostels/<id>/   — Hostel detail
-"""
-from rest_framework.generics import ListAPIView, RetrieveAPIView
-from rest_framework.permissions import AllowAny
+from rest_framework.generics import (
+    ListAPIView,
+    RetrieveAPIView,
+    CreateAPIView,
+    UpdateAPIView,
+    DestroyAPIView,
+)
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
 from .models import Hostel
-from .serializers import HostelListSerializer, HostelDetailSerializer
+from .serializers import (
+    HostelListSerializer,
+    HostelDetailSerializer,
+    HostelCreateSerializer,
+)
 from .filters import HostelFilter
+from accounts.permissions import IsOwner
 
 
 class HostelListView(ListAPIView):
-    """
-    Paginated hostel listings with filtering and search.
-
-    Query params:
-        city=           Filter by city (case-insensitive)
-        hostel_type=    boys | girls | mixed
-        min_price=      Minimum price per month
-        max_price=      Maximum price per month
-        is_available=   true | false
-        search=         Full-text search on name, city, description
-        ordering=       price_per_month | -price_per_month | created_at
-    """
-    queryset = Hostel.objects.prefetch_related('images', 'reviews').all()
+    queryset = Hostel.objects.prefetch_related('media_items').filter(is_active=True)
     serializer_class = HostelListSerializer
     permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = HostelFilter
-    search_fields = ['name', 'city', 'description', 'address']
-    ordering_fields = ['price_per_month', 'created_at', 'available_rooms']
+    search_fields = ['name', 'city', 'description', 'address', 'landmark']
+    ordering_fields = ['created_at']
     ordering = ['-created_at']
 
 
 class HostelDetailView(RetrieveAPIView):
-    """Full hostel detail including all images and reviews."""
-    queryset = Hostel.objects.prefetch_related('images', 'reviews').all()
+    queryset = Hostel.objects.prefetch_related('media_items').all()
     serializer_class = HostelDetailSerializer
     permission_classes = [AllowAny]
+
+
+class HostelOwnerListView(ListAPIView):
+    serializer_class = HostelListSerializer
+    permission_classes = [IsAuthenticated, IsOwner]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = HostelFilter
+    search_fields = ['name', 'city', 'description', 'address', 'landmark']
+    ordering_fields = ['created_at']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        return (
+            Hostel.objects
+            .filter(owner=self.request.user)
+            .prefetch_related('media_items')
+        )
+
+
+class HostelCreateView(CreateAPIView):
+    queryset = Hostel.objects.all()
+    serializer_class = HostelCreateSerializer
+    permission_classes = [IsAuthenticated, IsOwner]
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+
+class HostelUpdateView(UpdateAPIView):
+    serializer_class = HostelCreateSerializer
+    permission_classes = [IsAuthenticated, IsOwner]
+
+    def get_queryset(self):
+        return Hostel.objects.filter(owner=self.request.user)
+
+
+class HostelDeleteView(DestroyAPIView):
+    permission_classes = [IsAuthenticated, IsOwner]
+
+    def get_queryset(self):
+        return Hostel.objects.filter(owner=self.request.user)

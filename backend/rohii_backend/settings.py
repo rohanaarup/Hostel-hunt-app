@@ -1,8 +1,11 @@
 """
 ROHII Hostel Hunt — Django Settings
 Production-ready configuration with environment variable management.
+
+Connected to Railway Postgres (shared with Admin Panel).
 """
 import environ
+import dj_database_url
 from pathlib import Path
 from datetime import timedelta
 
@@ -18,7 +21,7 @@ env = environ.Env(
     DEBUG=(bool, False),
     ALLOWED_HOSTS=(list, ['localhost', '127.0.0.1']),
 )
-environ.Env.read_env(BASE_DIR / '.env')
+environ.Env.read_env(BASE_DIR / '.env', overwrite=True)
 
 # ---------------------------------------------------------------------------
 # Core
@@ -31,6 +34,7 @@ ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
 # Applications
 # ---------------------------------------------------------------------------
 INSTALLED_APPS = [
+    'accounts.apps.AccountsConfig',   # label='owners' (Must be first so it is registered before token_blacklist references it)
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -46,14 +50,15 @@ INSTALLED_APPS = [
     'django_filters',
 
     # Project apps
-    'accounts',
     'otp_auth',
     'hostels',
+    'rooms',
     'bookings',
-    'reviews',
+    'media_uploads',
+    'payments',
 ]
 
-AUTH_USER_MODEL = 'accounts.CustomUser'
+AUTH_USER_MODEL = 'owners.Owner'
 
 # ---------------------------------------------------------------------------
 # Middleware
@@ -90,13 +95,13 @@ TEMPLATES = [
 WSGI_APPLICATION = 'rohii_backend.wsgi.application'
 
 # ---------------------------------------------------------------------------
-# Database — SQLite for dev; swap to PostgreSQL for production
+# Database — Railway Postgres (shared with Admin Panel)
 # ---------------------------------------------------------------------------
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=env('DATABASE_URL'),
+        conn_max_age=600,
+    )
 }
 
 # ---------------------------------------------------------------------------
@@ -161,28 +166,28 @@ REST_FRAMEWORK = {
 # ---------------------------------------------------------------------------
 # JWT Configuration
 # ---------------------------------------------------------------------------
-ACCESS_LIFETIME = int(env('JWT_ACCESS_TOKEN_LIFETIME_MINUTES', default=15))
-REFRESH_LIFETIME = int(env('JWT_REFRESH_TOKEN_LIFETIME_DAYS', default=7))
-
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=ACCESS_LIFETIME),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=REFRESH_LIFETIME),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': True,
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
     'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'owner_id',
+    'USER_ID_CLAIM': 'user_id',
 }
 
 # ---------------------------------------------------------------------------
-# CORS
+# CORS & CSRF
 # ---------------------------------------------------------------------------
-CORS_ALLOWED_ORIGINS = env.list(
-    'CORS_ALLOWED_ORIGINS',
-    default=['http://localhost:3000', 'http://10.0.2.2:8000'],
-)
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = True
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'http://localhost:3000',
+]
 
 # ---------------------------------------------------------------------------
 # Email
@@ -208,3 +213,6 @@ if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
+else:
+    # Development: allow CSRF from localhost
+    CSRF_COOKIE_HTTPONLY = False

@@ -1,14 +1,3 @@
-"""
-otp_auth/services.py — OTP Business Logic
-
-Handles generation, rate limiting, email dispatch, and verification.
-Replaces: OtpService + FirebaseService OTP methods from Dart.
-
-Security improvements:
-- OTP stored as SHA-256 hash (never plaintext in DB)
-- Rate limiting enforced server-side
-- Email sent via Django's email backend (configurable: console for dev, SMTP for prod)
-"""
 import secrets
 from datetime import timedelta
 
@@ -20,40 +9,23 @@ from .models import OTPRecord
 
 
 class OTPRateLimitException(Exception):
-    """Raised when the client is sending OTPs too quickly."""
     def __init__(self, reason: str):
         self.reason = reason
         super().__init__(reason)
 
 
 class OTPVerificationException(Exception):
-    """Raised when OTP verification fails for any reason."""
-    def __init__(self, message: str, remaining_attempts: int = 0):
-        self.remaining_attempts = remaining_attempts
+    def __init__(self, message: str):
         super().__init__(message)
 
 
 class OTPService:
-    """
-    Service layer for all OTP operations.
-
-    Methods mirror firebase_service.dart + otp_service.dart behavior,
-    but with server-side enforcement and hashed storage.
-    """
-
     @staticmethod
     def _generate_otp() -> str:
-        """Cryptographically secure 6-digit OTP (no leading zeros stripped)."""
         return str(secrets.randbelow(900000) + 100000)
 
     @staticmethod
-    def _check_rate_limit(existing, email):
-        # type: (OTPRecord, str) -> None
-        """
-        Enforce:
-        1. 60-second cooldown between sends
-        2. Max 5 sends per hour
-        """
+    def _check_rate_limit(existing, identifier):
         if existing is None:
             return
 
@@ -66,115 +38,79 @@ class OTPService:
                 f'Please wait {remaining} second(s) before requesting a new OTP.'
             )
 
-        # Hourly send limit
-        if existing.first_send_at:
-            hours_since_first = (now - existing.first_send_at).total_seconds() / 3600
-            if hours_since_first < 1 and existing.send_count >= OTPRecord.MAX_SENDS_PER_HOUR:
-                raise OTPRateLimitException(
-                    'Maximum OTP requests exceeded. Please try again in an hour.'
-                )
-
     @staticmethod
     def _send_email(recipient_email: str, otp_code: str) -> None:
-        """Send OTP email via configured Django email backend."""
+        import logging
+        logger = logging.getLogger(__name__)
         subject = 'Your OTP for ROHII Hostel Hunt'
         html_message = _build_email_html(otp_code)
         plain_message = f'Your ROHII Hostel Hunt OTP is: {otp_code}. Valid for 5 minutes.'
 
-        send_mail(
-            subject=subject,
-            message=plain_message,
-            html_message=html_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[recipient_email],
-            fail_silently=False,
-        )
+        try:
+            if not getattr(settings, 'EMAIL_HOST_USER', None):
+                if settings.DEBUG:
+                    logger.warning(f"DEV FALLBACK: No EMAIL_HOST_USER. Printing OTP for {recipient_email}: {otp_code}")
+                    return
+                else:
+                    raise Exception("SMTP credentials not configured.")
+
+            send_mail(
+                subject=subject,
+                message=plain_message,
+                html_message=html_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[recipient_email],
+                fail_silently=False,
+            )
+            logger.info(f"SMTP EMAIL SENT TO {recipient_email}")
+        except Exception as e:
+            logger.error(f"Failed to send OTP to {recipient_email}: {e}")
+            raise e
 
     @classmethod
-    def generate_and_send(cls, email: str) -> None:
-        """
-        Generate a new OTP, enforce rate limits, send email, and persist record.
-        Mirrors: OtpService.generateOTP() + OtpService.sendOTPEmail() + FirebaseService.storeOTPRecord()
-        """
-        email = email.strip().lower()
-        existing = OTPRecord.objects.filter(email=email).first()
+    def generate_and_send(cls, identifier: str, purpose: str = 'registration') -> None:
+        identifier = identifier.strip().lower()
+        existing = OTPRecord.objects.filter(identifier=identifier, purpose=purpose).first()
 
-        cls._check_rate_limit(existing, email)
+        cls._check_rate_limit(existing, identifier)
 
         now = timezone.now()
         otp_code = cls._generate_otp()
         otp_hash = OTPRecord.hash_otp(otp_code)
 
-        # Calculate new send_count and first_send_at for rate limiting
-        send_count = 1
-        first_send_at = now
-
-        if existing and existing.first_send_at:
-            hours_since_first = (now - existing.first_send_at).total_seconds() / 3600
-            if hours_since_first < 1:
-                send_count = existing.send_count + 1
-                first_send_at = existing.first_send_at
-
-        # Upsert the OTP record (delete old, create new keeps clean single-row-per-email)
-        OTPRecord.objects.filter(email=email).delete()
+        OTPRecord.objects.filter(identifier=identifier, purpose=purpose).delete()
         OTPRecord.objects.create(
-            email=email,
-            otp_hash=otp_hash,
+            identifier=identifier,
+            otp_code=otp_hash,
+            purpose=purpose,
             expires_at=now + timedelta(minutes=OTPRecord.VALIDITY_MINUTES),
-            attempt_count=0,
-            verified=False,
-            send_count=send_count,
-            first_send_at=first_send_at,
+            is_used=False,
         )
 
-        # Send after persisting so the record exists even if email fails
-        cls._send_email(email, otp_code)
+        cls._send_email(identifier, otp_code)
 
     @staticmethod
-    def verify(email: str, otp_code: str) -> None:
-        """
-        Verify an OTP code. Raises OTPVerificationException on any failure.
-        On success, marks the record as verified (but does NOT delete it —
-        registration will clean it up after user creation).
-
-        Mirrors: FirebaseService.verifyOTP()
-        """
-        email = email.strip().lower()
-        record = OTPRecord.objects.filter(email=email).first()
+    def verify(identifier: str, otp_code: str, purpose: str = 'registration') -> None:
+        identifier = identifier.strip().lower()
+        record = OTPRecord.objects.filter(identifier=identifier, purpose=purpose).first()
 
         if record is None:
             raise OTPVerificationException('No OTP found. Please request a new one.')
 
-        if record.verified:
+        if record.is_used:
             raise OTPVerificationException('OTP already used. Please request a new one.')
 
         if record.is_expired():
             raise OTPVerificationException('OTP expired. Please request a new one.')
 
-        if record.is_attempts_exceeded():
-            raise OTPVerificationException(
-                'Maximum verification attempts exceeded. Please request a new OTP.'
-            )
-
         if not record.verify_code(otp_code):
-            record.attempt_count += 1
-            record.save(update_fields=['attempt_count'])
-            remaining = OTPRecord.MAX_ATTEMPTS - record.attempt_count
-            raise OTPVerificationException(
-                f'Incorrect OTP. {remaining} attempt(s) remaining.',
-                remaining_attempts=remaining,
-            )
+            raise OTPVerificationException('Incorrect OTP.')
 
-        # Mark verified
-        record.verified = True
-        record.save(update_fields=['verified'])
+        record.is_used = True
+        record.save(update_fields=['is_used'])
 
 
-# ---------------------------------------------------------------------------
-# Email Template
-# ---------------------------------------------------------------------------
 def _build_email_html(otp: str) -> str:
-    """HTML email template matching the original Dart otp_service.dart design."""
     return f"""<!DOCTYPE html>
 <html>
 <head>

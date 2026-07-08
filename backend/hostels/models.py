@@ -1,92 +1,80 @@
 """
-hostels/models.py — Hostel Listing Model
+hostels/models.py — Hostel Model
 
-Designed for scalability: supports filtering by city/type/price,
-full-text search, and image attachments.
+Matches Railway Postgres `hostels` table schema exactly.
+Uses UUID primary key (hostel_id).
 """
+import uuid
 from django.db import models
 from django.conf import settings
 
 
 class Hostel(models.Model):
-    HOSTEL_TYPE_CHOICES = [
+    """
+    Hostel listing model matching Railway's `hostels` table.
+
+    PK: hostel_id (UUID)
+    Table: hostels
+    """
+    GENDER_TYPE_CHOICES = [
         ('boys', 'Boys'),
         ('girls', 'Girls'),
         ('mixed', 'Mixed / Co-ed'),
     ]
 
+    hostel_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255, db_index=True)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.CASCADE,
         related_name='hostels',
+        db_column='owner_id',
     )
-    name = models.CharField(max_length=200, db_index=True)
-    description = models.TextField(blank=True)
+    owner_name = models.CharField(max_length=255)
+    contact_number = models.CharField(max_length=20)
+    email = models.EmailField(max_length=254)
     address = models.TextField()
     city = models.CharField(max_length=100, db_index=True)
-    state = models.CharField(max_length=100, blank=True)
-    pincode = models.CharField(max_length=10, blank=True)
+    state = models.CharField(max_length=100)
+    pincode = models.CharField(max_length=20)
+    landmark = models.CharField(max_length=255, null=True, blank=True)
 
-    hostel_type = models.CharField(
-        max_length=10,
-        choices=HOSTEL_TYPE_CHOICES,
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    google_maps_url = models.CharField(max_length=500, null=True, blank=True)
+
+    gender_type = models.CharField(
+        max_length=20,
+        choices=GENDER_TYPE_CHOICES,
         default='mixed',
         db_index=True,
     )
-    price_per_month = models.DecimalField(
-        max_digits=8, decimal_places=2, db_index=True
-    )
-    security_deposit = models.DecimalField(
-        max_digits=8, decimal_places=2, default=0
-    )
-    amenities = models.TextField(
-        default='',
-        blank=True,
-        help_text='Comma-separated list of amenities: WiFi,AC,Meals,Parking',
-    )
-    total_rooms = models.PositiveSmallIntegerField(default=1)
-    available_rooms = models.PositiveSmallIntegerField(default=1)
-    is_available = models.BooleanField(default=True, db_index=True)
+    total_floors = models.IntegerField(default=1)
+    total_rooms = models.IntegerField(default=1)
+    total_beds = models.IntegerField(default=1)
+    occupancy_types = models.JSONField(default=list)
 
-    # Location for future map/geo features
-    latitude = models.DecimalField(
-        max_digits=9, decimal_places=6, null=True, blank=True
-    )
-    longitude = models.DecimalField(
-        max_digits=9, decimal_places=6, null=True, blank=True
-    )
+    description = models.TextField(null=True, blank=True)
+    rules = models.TextField(null=True, blank=True)
+    check_in_policy = models.CharField(max_length=255, null=True, blank=True)
+    check_out_policy = models.CharField(max_length=255, null=True, blank=True)
 
-    contact_phone = models.CharField(max_length=20, blank=True)
-    contact_email = models.EmailField(blank=True)
+    amenities = models.JSONField(default=list)
+
+    is_active = models.BooleanField(default=True)
+    is_verified = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        db_table = 'hostels'
         ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['city', 'hostel_type']),
-            models.Index(fields=['city', 'price_per_month']),
-        ]
 
     def __str__(self):
         return f'{self.name} ({self.city})'
 
     @property
     def average_rating(self):
-        reviews = self.reviews.all()
-        if not reviews:
-            return 0.0
-        return round(sum(r.rating for r in reviews) / len(reviews), 1)
-
-
-class HostelImage(models.Model):
-    hostel = models.ForeignKey(Hostel, on_delete=models.CASCADE, related_name='images')
-    image = models.ImageField(upload_to='hostels/images/')
-    caption = models.CharField(max_length=200, blank=True)
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f'Image for {self.hostel.name}'
+        # Placeholder — reviews table doesn't exist in Railway yet
+        return 0.0

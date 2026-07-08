@@ -1,3 +1,21 @@
 {
-    "java.configuration.updateBuildConfiguration": "interactive"
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "server": "ep-cool-voice-aqqwvwf2.c-8.us-east-1.aws.neon.tech",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "Rohii Neon DB",
+            "database": "neondb",
+            "username": "neondb_owner",
+            "password": "npg_r3mM8FzgRKta",
+            "connectionTimeout": 30,
+            "pgOptions": {
+                "ssl": {
+                    "rejectUnauthorized": false
+                }
+            }
+        }
+    ]
 }
