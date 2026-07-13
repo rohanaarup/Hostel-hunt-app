@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/theme/notifiers.dart';
 import 'package:rohii_hostel_hunt/shared/widgets/sub_header.dart';
 
@@ -21,7 +21,7 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
     return ValueListenableBuilder<bool>(
       valueListenable: themeNotifier,
       builder: (context, isDark, _) => Scaffold(
-        backgroundColor: AppColors.background(isDark),
+        backgroundColor: AppColors.appBackground(isDark),
         body: Column(
           children: [
             SubHeader(title: 'Settings', subtitle: 'App preferences & permissions', isDark: isDark),
@@ -32,7 +32,7 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
                 children: [
                   _SettingsGroup(label: 'Appearance', isDark: isDark, tiles: [
                     _ToggleTile(icon: isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-                        iconColor: AppColors.orange, iconBg: AppColors.orangeSoft,
+                        iconColor: AppColors.auburn500, iconBg: AppColors.auburn50,
                         title: 'App Theme', subtitle: isDark ? 'Dark Mode' : 'Light Mode',
                         value: isDark, isDark: isDark, onChanged: (_) => toggleTheme()),
                   ]),
@@ -59,13 +59,13 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
                     _NavTile(icon: Icons.privacy_tip_outlined, iconColor: const Color(0xFF1565C0),
                         iconBg: const Color(0xFFE3F2FD), title: 'Privacy Policy',
                         isDark: isDark, onTap: () {}),
-                    _NavTile(icon: Icons.description_outlined, iconColor: AppColors.textMuted,
-                        iconBg: AppColors.chip, title: 'Terms of Service',
+                    _NavTile(icon: Icons.description_outlined, iconColor: AppColors.ink700,
+                        iconBg: AppColors.ivory300, title: 'Terms of Service',
                         isDark: isDark, onTap: () {}, isLast: true),
                   ]),
                   const SizedBox(height: 20),
                   Center(child: Text('Hostel Hunt v1.0.0 · Aarupa Matrix',
-                      style: TextStyle(color: AppColors.textTertiary(isDark), fontSize: 11))),
+                      style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 11))),
                 ],
               ),
             ),
@@ -88,13 +88,13 @@ class _SettingsGroup extends StatelessWidget {
       Padding(
         padding: const EdgeInsets.only(left: 4, bottom: 10),
         child: Text(label.toUpperCase(),
-            style: TextStyle(color: AppColors.textTertiary(isDark), fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.1)),
+            style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.1)),
       ),
       Container(
         decoration: BoxDecoration(
           color: AppColors.cardBg(isDark),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isDark ? AppColors.chipDark : AppColors.border, width: 0.8),
+          border: Border.all(color: isDark ? AppColors.ivory700 : AppColors.ivory300, width: 0.8),
           boxShadow: [BoxShadow(color: AppColors.shadow.withValues(alpha: isDark ? 0.15 : 0.05), blurRadius: 12, offset: const Offset(0, 4))],
         ),
         child: Column(children: tiles),
@@ -124,15 +124,15 @@ class _ToggleTile extends StatelessWidget {
               child: Icon(icon, color: iconColor, size: 20)),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: TextStyle(color: AppColors.textPrimary(isDark), fontSize: 14, fontWeight: FontWeight.w600)),
+            Text(title, style: TextStyle(color: AppColors.textHeading(isDark), fontSize: 14, fontWeight: FontWeight.w600)),
             Text(subtitle, style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 12)),
           ])),
-          Switch(value: value, activeTrackColor: AppColors.orange, onChanged: onChanged),
+          Switch(value: value, activeTrackColor: AppColors.auburn500, onChanged: onChanged),
         ]),
       ),
       if (!isLast)
         Padding(padding: const EdgeInsets.only(left: 72),
-            child: Divider(height: 1, thickness: 0.6, color: isDark ? AppColors.chipDark : AppColors.border)),
+            child: Divider(height: 1, thickness: 0.6, color: isDark ? AppColors.ivory700 : AppColors.ivory300)),
     ]);
   }
 }
@@ -158,14 +158,15 @@ class _NavTile extends StatelessWidget {
                 decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)),
                 child: Icon(icon, color: iconColor, size: 20)),
             const SizedBox(width: 14),
-            Expanded(child: Text(title, style: TextStyle(color: AppColors.textPrimary(isDark), fontSize: 14, fontWeight: FontWeight.w600))),
-            Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textTertiary(isDark)),
+            Expanded(child: Text(title, style: TextStyle(color: AppColors.textHeading(isDark), fontSize: 14, fontWeight: FontWeight.w600))),
+            Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textSecondary(isDark)),
           ]),
         ),
       ),
       if (!isLast)
         Padding(padding: const EdgeInsets.only(left: 72),
-            child: Divider(height: 1, thickness: 0.6, color: isDark ? AppColors.chipDark : AppColors.border)),
+            child: Divider(height: 1, thickness: 0.6, color: isDark ? AppColors.ivory700 : AppColors.ivory300)),
     ]);
   }
 }
+

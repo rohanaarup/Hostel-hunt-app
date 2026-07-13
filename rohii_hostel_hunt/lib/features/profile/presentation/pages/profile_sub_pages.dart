@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/theme/notifiers.dart';
 
 // Shared placeholder scaffold used by every profile sub-page.
@@ -21,22 +21,22 @@ class _SubPage extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: themeNotifier,
       builder: (context, isDark, _) => Scaffold(
-        backgroundColor: AppColors.background(isDark),
+        backgroundColor: AppColors.appBackground(isDark),
         appBar: AppBar(
           title: Text(title,
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
           flexibleSpace: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppColors.orange, AppColors.orangeDark],
+                colors: [AppColors.auburn500, AppColors.auburn700],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
             ),
           ),
-          backgroundColor: AppColors.orange,
-          foregroundColor: AppColors.white,
+          backgroundColor: AppColors.auburn500,
+          foregroundColor: AppColors.ivory50,
           elevation: 0,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
@@ -62,7 +62,7 @@ class _SubPage extends StatelessWidget {
                     Text(
                       title,
                       style: TextStyle(
-                        color: AppColors.textPrimary(isDark),
+                        color: AppColors.textHeading(isDark),
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),
@@ -81,9 +81,9 @@ class _SubPage extends StatelessWidget {
                     OutlinedButton(
                       onPressed: () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.orange,
+                        foregroundColor: AppColors.auburn500,
                         side: const BorderSide(
-                            color: AppColors.orange, width: 1.5),
+                            color: AppColors.auburn500, width: 1.5),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14)),
                         padding: const EdgeInsets.symmetric(
@@ -107,7 +107,7 @@ class EditProfilePage extends StatelessWidget {
   Widget build(BuildContext context) => const _SubPage(
         title: 'Edit Profile',
         icon: Icons.edit_rounded,
-        iconColor: AppColors.orange,
+        iconColor: AppColors.auburn500,
         message:
             'Update your name, photo, phone number and other personal details.',
       );
@@ -143,7 +143,7 @@ class BookingRequestsPage extends StatelessWidget {
   Widget build(BuildContext context) => const _SubPage(
         title: 'Booking Requests',
         icon: Icons.assignment_rounded,
-        iconColor: AppColors.orange,
+        iconColor: AppColors.auburn500,
         message:
             'Track pending, confirmed, and past booking requests from one place.',
       );
@@ -194,14 +194,14 @@ class AppSettingsPage extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: themeNotifier,
       builder: (context, isDark, _) => Scaffold(
-        backgroundColor: AppColors.background(isDark),
+        backgroundColor: AppColors.appBackground(isDark),
         appBar: AppBar(
           title: const Text('Settings',
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
           flexibleSpace: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppColors.orange, AppColors.orangeDark],
+                colors: [AppColors.auburn500, AppColors.auburn700],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -209,8 +209,8 @@ class AppSettingsPage extends StatelessWidget {
                   BorderRadius.vertical(bottom: Radius.circular(20)),
             ),
           ),
-          backgroundColor: AppColors.orange,
-          foregroundColor: AppColors.white,
+          backgroundColor: AppColors.auburn500,
+          foregroundColor: AppColors.ivory50,
           elevation: 0,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
@@ -226,7 +226,7 @@ class AppSettingsPage extends StatelessWidget {
                   color: AppColors.cardBg(isDark),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isDark ? AppColors.chipDark : AppColors.border,
+                    color: isDark ? AppColors.ivory700 : AppColors.ivory300,
                     width: 0.8,
                   ),
                   boxShadow: [
@@ -247,14 +247,14 @@ class AppSettingsPage extends StatelessWidget {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: AppColors.orangeSoft,
+                          color: AppColors.auburn50,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
                           isDark
                               ? Icons.dark_mode_rounded
                               : Icons.light_mode_rounded,
-                          color: AppColors.orange,
+                          color: AppColors.auburn500,
                           size: 22,
                         ),
                       ),
@@ -266,7 +266,7 @@ class AppSettingsPage extends StatelessWidget {
                             Text(
                               'App Theme',
                               style: TextStyle(
-                                color: AppColors.textPrimary(isDark),
+                                color: AppColors.textHeading(isDark),
                                 fontWeight: FontWeight.w600,
                                 fontSize: 15,
                               ),
@@ -282,7 +282,7 @@ class AppSettingsPage extends StatelessWidget {
                       ),
                       Switch(
                         value: isDark,
-                        activeTrackColor: AppColors.orange,
+                        activeTrackColor: AppColors.auburn500,
                         onChanged: (_) => toggleTheme(),
                       ),
                     ],
@@ -294,7 +294,7 @@ class AppSettingsPage extends StatelessWidget {
                 child: Text(
                   'More settings coming soon.',
                   style: TextStyle(
-                      color: AppColors.textTertiary(isDark), fontSize: 13),
+                      color: AppColors.textSecondary(isDark), fontSize: 13),
                 ),
               ),
             ],
@@ -304,3 +304,4 @@ class AppSettingsPage extends StatelessWidget {
     );
   }
 }
+

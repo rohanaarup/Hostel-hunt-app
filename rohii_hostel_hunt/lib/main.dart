@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
 import 'package:rohii_hostel_hunt/core/router/router.dart';
 import 'package:rohii_hostel_hunt/core/theme/theme_provider.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 // Using Django JWT auth - no Firebase needed
 
 void main() async {

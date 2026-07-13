@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/theme/theme_provider.dart';
 import 'package:rohii_hostel_hunt/features/search/presentation/providers/search_riverpod_provider.dart';
 import 'package:rohii_hostel_hunt/features/search/presentation/widgets/search_result_card.dart';
@@ -66,7 +66,7 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
     final searchState = ref.watch(searchProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background(isDark),
+      backgroundColor: AppColors.appBackground(isDark),
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -113,7 +113,7 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
             onPressed: () => Navigator.pop(context),
             icon: Icon(
               Icons.arrow_back_rounded,
-              color: AppColors.textPrimary(isDark),
+              color: AppColors.textHeading(isDark),
               size: 24,
             ),
             splashRadius: 22,
@@ -124,11 +124,11 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
             child: Container(
               height: 46,
               decoration: BoxDecoration(
-                color: AppColors.chipBg(isDark),
+                color: AppColors.chipInactiveBg(isDark),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: _focusNode.hasFocus
-                      ? AppColors.orange.withValues(alpha: 0.5)
+                      ? AppColors.auburn500.withValues(alpha: 0.5)
                       : Colors.transparent,
                   width: 1.5,
                 ),
@@ -138,7 +138,7 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
                   const SizedBox(width: 14),
                   Icon(
                     Icons.search_rounded,
-                    color: AppColors.textTertiary(isDark),
+                    color: AppColors.textSecondary(isDark),
                     size: 20,
                   ),
                   const SizedBox(width: 10),
@@ -151,14 +151,14 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
                         setState(() {}); // rebuild for clear button
                       },
                       style: TextStyle(
-                        color: AppColors.textPrimary(isDark),
+                        color: AppColors.textHeading(isDark),
                         fontSize: 15,
                         fontWeight: FontWeight.w400,
                       ),
                       decoration: InputDecoration(
                         hintText: 'Search hostels, areas...',
                         hintStyle: TextStyle(
-                          color: AppColors.textTertiary(isDark),
+                          color: AppColors.textSecondary(isDark),
                           fontSize: 15,
                           fontWeight: FontWeight.w400,
                         ),
@@ -195,7 +195,7 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
                       padding: const EdgeInsets.all(10),
                       child: Icon(
                         Icons.mic_none_rounded,
-                        color: AppColors.orange.withValues(alpha: 0.7),
+                        color: AppColors.auburn500.withValues(alpha: 0.7),
                         size: 20,
                       ),
                     ),
@@ -245,7 +245,7 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
                 child: Text(
                   'Clear',
                   style: TextStyle(
-                    color: AppColors.orange,
+                    color: AppColors.auburn500,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -303,12 +303,12 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: AppColors.chipBg(isDark),
+          color: AppColors.chipInactiveBg(isDark),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isDark
-                ? AppColors.white.withValues(alpha: 0.08)
-                : AppColors.border,
+                ? AppColors.ivory50.withValues(alpha: 0.08)
+                : AppColors.ivory300,
             width: 1,
           ),
         ),
@@ -318,14 +318,14 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
             Icon(
               Icons.history_rounded,
               size: 14,
-              color: AppColors.textTertiary(isDark),
+              color: AppColors.textSecondary(isDark),
             ),
             const SizedBox(width: 6),
             Text(
               term,
               style: TextStyle(
                 fontSize: 13,
-                color: AppColors.textPrimary(isDark),
+                color: AppColors.textHeading(isDark),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -376,8 +376,8 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: isDark
-                    ? AppColors.white.withValues(alpha: 0.06)
-                    : AppColors.border,
+                    ? AppColors.ivory50.withValues(alpha: 0.06)
+                    : AppColors.ivory300,
                 width: 1,
               ),
               boxShadow: [
@@ -394,13 +394,13 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: AppColors.orange.withValues(alpha: isDark ? 0.15 : 0.1),
+                    color: AppColors.auburn500.withValues(alpha: isDark ? 0.15 : 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     icon,
                     size: 16,
-                    color: AppColors.orange,
+                    color: AppColors.auburn500,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -410,7 +410,7 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary(isDark),
+                      color: AppColors.textHeading(isDark),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -438,7 +438,7 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
             child: CircularProgressIndicator(
               strokeWidth: 3,
               valueColor: AlwaysStoppedAnimation<Color>(
-                AppColors.orange.withValues(alpha: 0.8),
+                AppColors.auburn500.withValues(alpha: 0.8),
               ),
             ),
           ),
@@ -495,7 +495,7 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
                 content: Row(
                   children: [
                     const Icon(Icons.apartment_rounded,
-                        color: AppColors.white, size: 18),
+                        color: AppColors.ivory50, size: 18),
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
@@ -503,13 +503,13 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          color: AppColors.white,
+                          color: AppColors.ivory50,
                         ),
                       ),
                     ),
                   ],
                 ),
-                backgroundColor: AppColors.orange,
+                backgroundColor: AppColors.auburn500,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
@@ -542,8 +542,8 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
                   colors: [
-                    AppColors.orange.withValues(alpha: 0.12),
-                    AppColors.orangeLight.withValues(alpha: 0.06),
+                    AppColors.auburn500.withValues(alpha: 0.12),
+                    AppColors.auburn300.withValues(alpha: 0.06),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -552,14 +552,14 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
               child: Icon(
                 Icons.search_off_rounded,
                 size: 44,
-                color: AppColors.orange.withValues(alpha: 0.55),
+                color: AppColors.auburn500.withValues(alpha: 0.55),
               ),
             ),
             const SizedBox(height: 20),
             Text(
               'No hostels found',
               style: TextStyle(
-                color: AppColors.textPrimary(isDark),
+                color: AppColors.textHeading(isDark),
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
@@ -623,13 +623,13 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 decoration: BoxDecoration(
-                  gradient: AppColors.orangeGradient,
+                  gradient: AppColors.auburnGradient,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
                   'Retry',
                   style: TextStyle(
-                    color: AppColors.white,
+                    color: AppColors.ivory50,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -642,3 +642,4 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
     );
   }
 }
+

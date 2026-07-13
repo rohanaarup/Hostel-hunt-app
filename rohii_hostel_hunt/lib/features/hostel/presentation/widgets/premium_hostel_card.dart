@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/utils/hostel_navigation.dart';
 
 /// Premium hostel card — immersive full-image design.
@@ -81,7 +81,7 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
         content: Row(
           children: [
             const Icon(Icons.check_circle_rounded,
-                color: AppColors.white, size: 18),
+                color: AppColors.ivory50, size: 18),
             const SizedBox(width: 8),
             Flexible(
               child: Text(
@@ -89,7 +89,7 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
                 style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: AppColors.white),
+                    color: AppColors.ivory50),
               ),
             ),
           ],
@@ -139,7 +139,7 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
                   ),
                   // Subtle orange glow for premium look
                   BoxShadow(
-                    color: AppColors.orange.withValues(alpha: 0.06),
+                    color: AppColors.auburn500.withValues(alpha: 0.06),
                     blurRadius: 16,
                     offset: const Offset(0, 4),
                   ),
@@ -197,8 +197,8 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.orange.withValues(alpha: 0.25),
-            AppColors.orangeDark.withValues(alpha: 0.15),
+            AppColors.auburn500.withValues(alpha: 0.25),
+            AppColors.auburn700.withValues(alpha: 0.15),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -209,11 +209,11 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.apartment_rounded,
-                size: 48, color: AppColors.orange.withValues(alpha: 0.5)),
+                size: 48, color: AppColors.auburn500.withValues(alpha: 0.5)),
             const SizedBox(height: 8),
             Text(hostel.name,
                 style: TextStyle(
-                  color: AppColors.orange.withValues(alpha: 0.6),
+                  color: AppColors.auburn500.withValues(alpha: 0.6),
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 )),
@@ -237,7 +237,7 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
     String url = imagePath;
     if (!imagePath.startsWith('http')) {
       final baseUrl = ApiService.baseUrl;
-      final mediaBase = baseUrl.replaceAll('/api', '');
+      final mediaBase = baseUrl.replaceAll(RegExp(r'/api(?:/v1)?'), '');
       url = '$mediaBase$imagePath';
     }
 
@@ -247,12 +247,12 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
         return Container(
-          color: AppColors.orange.withValues(alpha: 0.08),
+          color: AppColors.auburn500.withValues(alpha: 0.08),
           child: Center(
             child: CircularProgressIndicator(
               strokeWidth: 2,
               valueColor: AlwaysStoppedAnimation<Color>(
-                AppColors.orange.withValues(alpha: 0.6),
+                AppColors.auburn500.withValues(alpha: 0.6),
               ),
             ),
           ),
@@ -270,12 +270,12 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [AppColors.orange, AppColors.orangeDark],
+            colors: [AppColors.auburn500, AppColors.auburn700],
           ),
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: AppColors.orange.withValues(alpha: 0.45),
+              color: AppColors.auburn500.withValues(alpha: 0.45),
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
@@ -284,12 +284,12 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.star_rounded, color: AppColors.white, size: 14),
+            const Icon(Icons.star_rounded, color: AppColors.ivory50, size: 14),
             const SizedBox(width: 3),
             Text(
               hostel.rating.toString(),
               style: const TextStyle(
-                color: AppColors.white,
+                color: AppColors.ivory50,
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
               ),
@@ -314,14 +314,14 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
                     color: const Color(0x50000000),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: AppColors.white.withValues(alpha: 0.18),
+                      color: AppColors.ivory50.withValues(alpha: 0.18),
                       width: 0.5,
                     ),
                   ),
                   child: Text(
                     tag,
                     style: const TextStyle(
-                      color: AppColors.white,
+                      color: AppColors.ivory50,
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.3,
@@ -350,7 +350,7 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
               color: const Color(0x40000000),
               border: Border(
                 top: BorderSide(
-                  color: AppColors.white.withValues(alpha: 0.1),
+                  color: AppColors.ivory50.withValues(alpha: 0.1),
                   width: 0.5,
                 ),
               ),
@@ -365,7 +365,7 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.white,
+                    color: AppColors.ivory50,
                     letterSpacing: -0.2,
                     height: 1.2,
                   ),
@@ -379,13 +379,13 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
                   children: [
                     Icon(Icons.location_on_rounded,
                         size: 12,
-                        color: AppColors.orangeLight),
+                        color: AppColors.auburn300),
                     const SizedBox(width: 3),
                     Flexible(
                       child: Text(
                         hostel.location,
                         style: TextStyle(
-                          color: AppColors.white.withValues(alpha: 0.8),
+                          color: AppColors.ivory50.withValues(alpha: 0.8),
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
                         ),
@@ -404,7 +404,7 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: AppColors.orange.withValues(alpha: 0.2),
+                        color: AppColors.auburn500.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -412,7 +412,7 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.orangeLight,
+                          color: AppColors.auburn300,
                           letterSpacing: -0.2,
                         ),
                       ),
@@ -451,14 +451,14 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
             height: 44,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [AppColors.orange, AppColors.orangeDark],
+                colors: [AppColors.auburn500, AppColors.auburn700],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.orange.withValues(alpha: 0.4),
+                  color: AppColors.auburn500.withValues(alpha: 0.4),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -466,7 +466,7 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
             ),
             child: const Icon(
               Icons.heart_broken_rounded,
-              color: AppColors.white,
+              color: AppColors.ivory50,
               size: 20,
             ),
           ),
@@ -475,3 +475,4 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
     );
   }
 }
+

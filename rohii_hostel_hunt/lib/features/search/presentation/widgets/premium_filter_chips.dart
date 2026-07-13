@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 
 /// Premium animated filter chips with:
 ///  • AnimatedContainer — smooth bg color, shadow/glow, border transitions
 ///  • AnimatedScale — bounce on press (0.92×) + scale-up on select (1.05×)
 ///  • AnimatedDefaultTextStyle — color & weight transitions
-///  • Double-shadow glow using AppColors.orangeGlow when selected
+///  • Double-shadow glow using AppColors.auburn500.withValues(alpha: 0.25) when selected
 ///  • HapticFeedback for tactile response
 ///  • Duration: 250ms per spec
 ///
@@ -81,27 +81,27 @@ class _PremiumFilterChipsState extends State<PremiumFilterChips> {
                     // Selected = orange gradient, else neutral chip bg
                     gradient: isSelected
                         ? const LinearGradient(
-                            colors: [AppColors.orange, AppColors.orangeDark],
+                            colors: [AppColors.auburn500, AppColors.auburn700],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           )
                         : null,
-                    color: isSelected ? null : AppColors.chipBg(widget.isDark),
+                    color: isSelected ? null : AppColors.chipInactiveBg(widget.isDark),
                     borderRadius: BorderRadius.circular(20),
                     border: isSelected
                         ? null
                         : Border.all(
                             color: widget.isDark
-                                ? AppColors.chipDark
-                                : AppColors.border,
+                                ? AppColors.ivory700
+                                : AppColors.ivory300,
                             width: 1,
                           ),
                     // Double-shadow glow when selected for premium halo
                     boxShadow: isSelected
                         ? [
                             // Primary glow — warm orange halo
-                            const BoxShadow(
-                              color: AppColors.orangeGlow,
+                            BoxShadow(
+                              color: AppColors.auburn500.withValues(alpha: 0.25),
                               blurRadius: 18,
                               spreadRadius: 2,
                               offset: Offset(0, 4),
@@ -109,7 +109,7 @@ class _PremiumFilterChipsState extends State<PremiumFilterChips> {
                             // Secondary inner glow — tighter ring
                             BoxShadow(
                               color:
-                                  AppColors.orange.withValues(alpha: 0.2),
+                                  AppColors.auburn500.withValues(alpha: 0.2),
                               blurRadius: 6,
                               spreadRadius: 0,
                               offset: const Offset(0, 1),
@@ -122,7 +122,7 @@ class _PremiumFilterChipsState extends State<PremiumFilterChips> {
                     curve: Curves.easeOut,
                     style: TextStyle(
                       color: isSelected
-                          ? AppColors.white
+                          ? AppColors.ivory50
                           : AppColors.textSecondary(widget.isDark),
                       fontWeight:
                           isSelected ? FontWeight.w700 : FontWeight.w500,
@@ -140,3 +140,4 @@ class _PremiumFilterChipsState extends State<PremiumFilterChips> {
     );
   }
 }
+

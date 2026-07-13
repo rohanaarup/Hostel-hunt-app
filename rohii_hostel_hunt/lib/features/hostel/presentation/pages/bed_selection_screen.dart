@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:rohii_hostel_hunt/features/hostel/presentation/pages/booking_success_screen.dart';
+
+import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
 
 class BedSelectionScreen extends StatefulWidget {
-  const BedSelectionScreen({super.key});
+  final Hostel hostel;
+
+  const BedSelectionScreen({super.key, required this.hostel});
 
   @override
   State<BedSelectionScreen> createState() => _BedSelectionScreenState();
@@ -502,8 +508,36 @@ class _BedSelectionScreenState extends State<BedSelectionScreen> {
         children: [
           GestureDetector(
             onTap: isActive
-                ? () {
-                    // Action when booked
+                ? () async {
+                    // Show a loading dialog
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => const Center(
+                        child: CircularProgressIndicator(color: Colors.orange),
+                      ),
+                    );
+
+                    // Simulate network request (Flutter Only Safe Extension)
+                    await Future.delayed(const Duration(seconds: 2));
+
+                    if (!mounted) return;
+                    Navigator.pop(context); // Close loading dialog
+                    
+                    final bedInfo = bedsInfo.firstWhere((b) => b['id'] == selectedBedId);
+                    
+                    // Navigate to success screen
+                    Navigator.push(
+                      context,
+                      CupertinoPageRoute(
+                        builder: (_) => BookingSummaryScreen(
+                          hostel: widget.hostel,
+                          floor: selectedFloor!,
+                          room: selectedRoom!,
+                          bedLabel: bedInfo['label']!,
+                        ),
+                      ),
+                    );
                   }
                 : null,
             child: AnimatedOpacity(

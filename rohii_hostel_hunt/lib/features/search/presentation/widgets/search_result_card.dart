@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/utils/hostel_navigation.dart';
 
 /// ─────────────────────────────────────────────────────────
@@ -61,8 +61,8 @@ class _SearchResultCardState extends State<SearchResultCard> {
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: isDark
-                  ? AppColors.white.withValues(alpha: 0.06)
-                  : AppColors.border,
+                  ? AppColors.ivory50.withValues(alpha: 0.06)
+                  : AppColors.ivory300,
               width: 1,
             ),
             boxShadow: [
@@ -101,7 +101,7 @@ class _SearchResultCardState extends State<SearchResultCard> {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: AppColors.orange.withValues(alpha: 0.08),
+            color: AppColors.auburn500.withValues(alpha: 0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -116,8 +116,8 @@ class _SearchResultCardState extends State<SearchResultCard> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppColors.orange.withValues(alpha: 0.15),
-                  AppColors.orangeDark.withValues(alpha: 0.08),
+                  AppColors.auburn500.withValues(alpha: 0.15),
+                  AppColors.auburn700.withValues(alpha: 0.08),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -125,7 +125,7 @@ class _SearchResultCardState extends State<SearchResultCard> {
             ),
             child: Icon(
               Icons.apartment_rounded,
-              color: AppColors.orange.withValues(alpha: 0.5),
+              color: AppColors.auburn500.withValues(alpha: 0.5),
               size: 32,
             ),
           ),
@@ -146,7 +146,7 @@ class _SearchResultCardState extends State<SearchResultCard> {
           TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary(isDark),
+            color: AppColors.textHeading(isDark),
             letterSpacing: -0.2,
             height: 1.2,
           ),
@@ -160,7 +160,7 @@ class _SearchResultCardState extends State<SearchResultCard> {
             Icon(
               Icons.location_on_rounded,
               size: 12,
-              color: AppColors.orange.withValues(alpha: 0.8),
+              color: AppColors.auburn500.withValues(alpha: 0.8),
             ),
             const SizedBox(width: 3),
             Flexible(
@@ -186,7 +186,7 @@ class _SearchResultCardState extends State<SearchResultCard> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: AppColors.orange.withValues(alpha: isDark ? 0.15 : 0.1),
+                color: AppColors.auburn500.withValues(alpha: isDark ? 0.15 : 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -194,7 +194,7 @@ class _SearchResultCardState extends State<SearchResultCard> {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.orange,
+                  color: AppColors.auburn500,
                 ),
               ),
             ),
@@ -207,7 +207,7 @@ class _SearchResultCardState extends State<SearchResultCard> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.chipBg(isDark),
+                      color: AppColors.chipInactiveBg(isDark),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -231,12 +231,12 @@ class _SearchResultCardState extends State<SearchResultCard> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [AppColors.orange, AppColors.orangeDark],
+          colors: [AppColors.auburn500, AppColors.auburn700],
         ),
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: AppColors.orange.withValues(alpha: 0.3),
+            color: AppColors.auburn500.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -245,12 +245,12 @@ class _SearchResultCardState extends State<SearchResultCard> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.star_rounded, color: AppColors.white, size: 14),
+          const Icon(Icons.star_rounded, color: AppColors.ivory50, size: 14),
           const SizedBox(height: 1),
           Text(
             hostel.rating.toString(),
             style: const TextStyle(
-              color: AppColors.white,
+              color: AppColors.ivory50,
               fontWeight: FontWeight.w700,
               fontSize: 12,
             ),
@@ -291,7 +291,7 @@ class _SearchResultCardState extends State<SearchResultCard> {
             ),
           TextSpan(
             text: text.substring(matchIndex, matchIndex + query.length),
-            style: baseStyle.copyWith(color: AppColors.orange),
+            style: baseStyle.copyWith(color: AppColors.auburn500),
           ),
           if (matchIndex + query.length < text.length)
             TextSpan(
@@ -303,3 +303,4 @@ class _SearchResultCardState extends State<SearchResultCard> {
     );
   }
 }
+

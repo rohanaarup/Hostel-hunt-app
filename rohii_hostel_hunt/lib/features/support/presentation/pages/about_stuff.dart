@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/utils/call.dart';
 
 class AboutStuff extends StatelessWidget {
@@ -8,7 +8,7 @@ class AboutStuff extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.ivory100,
       appBar: AppBar(
         title: const Text(
           "About Us",
@@ -17,15 +17,15 @@ class AboutStuff extends StatelessWidget {
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [AppColors.orange, AppColors.orangeDark],
+              colors: [AppColors.auburn500, AppColors.auburn700],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
           ),
         ),
-        backgroundColor: AppColors.orange,
-        foregroundColor: AppColors.white,
+        backgroundColor: AppColors.auburn500,
+        foregroundColor: AppColors.ivory50,
         elevation: 0,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
@@ -40,7 +40,7 @@ class AboutStuff extends StatelessWidget {
             Text(
               "About Hostel Hunt",
               style: AppCall.headlineTextFieldStyle().copyWith(
-                color: AppColors.textDark,
+                color: AppColors.ink900,
                 fontSize: 24,
                 fontWeight: FontWeight.w800,
               ),
@@ -49,9 +49,9 @@ class AboutStuff extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: AppColors.card,
+                color: AppColors.ivory100,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: AppColors.ivory300),
                 boxShadow: [
                   BoxShadow(
                     color: AppColors.shadow.withValues(alpha: 0.06),
@@ -66,7 +66,7 @@ class AboutStuff extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15,
                   height: 1.6,
-                  color: AppColors.textMuted,
+                  color: AppColors.ink700,
                 ),
               ),
             ),
@@ -75,13 +75,13 @@ class AboutStuff extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: AppColors.orangeSoft,
+                  color: AppColors.auburn50,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.home_work_outlined,
                   size: 60,
-                  color: AppColors.orange,
+                  color: AppColors.auburn500,
                 ),
               ),
             ),
@@ -92,12 +92,12 @@ class AboutStuff extends StatelessWidget {
                 height: 52,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [AppColors.orange, AppColors.orangeDark],
+                    colors: [AppColors.auburn500, AppColors.auburn700],
                   ),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.orange.withValues(alpha: 0.3),
+                      color: AppColors.auburn500.withValues(alpha: 0.3),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -112,7 +112,7 @@ class AboutStuff extends StatelessWidget {
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0x00000000),
-                    foregroundColor: AppColors.white,
+                    foregroundColor: AppColors.ivory50,
                     shadowColor: const Color(0x00000000),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -128,3 +128,4 @@ class AboutStuff extends StatelessWidget {
     );
   }
 }
+

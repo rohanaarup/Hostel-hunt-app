@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/utils/call.dart';
 
 class Loading extends StatefulWidget {
@@ -33,13 +33,13 @@ class _LoadingState extends State<Loading> with SingleTickerProviderStateMixin {
     return Scaffold(
       body: Container(
         width: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
               Color(0xFF1E1030),  // deep purple-dark
-              AppColors.surfaceDark,
+              AppColors.appBackground(true),
             ],
           ),
         ),
@@ -58,12 +58,12 @@ class _LoadingState extends State<Loading> with SingleTickerProviderStateMixin {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: AppColors.orange.withValues(alpha: 0.4),
+                      color: AppColors.auburn500.withValues(alpha: 0.4),
                       width: 2,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.orange.withValues(alpha: glow),
+                        color: AppColors.auburn500.withValues(alpha: glow),
                         blurRadius: 40,
                         spreadRadius: 8,
                       ),
@@ -87,7 +87,7 @@ class _LoadingState extends State<Loading> with SingleTickerProviderStateMixin {
             Text(
               "MEE HOSTEL",
               style: AppCall.headlineTextFieldStyle().copyWith(
-                color: AppColors.white,
+                color: AppColors.ivory50,
                 letterSpacing: 3.0,
                 fontSize: 26,
                 fontWeight: FontWeight.w800,
@@ -98,7 +98,7 @@ class _LoadingState extends State<Loading> with SingleTickerProviderStateMixin {
             Text(
               "find your sweet home away from home",
               style: TextStyle(
-                color: AppColors.textLightMuted,
+                color: AppColors.ivory300,
                 fontSize: 15,
                 fontStyle: FontStyle.italic,
                 letterSpacing: 0.3,
@@ -119,12 +119,12 @@ class _LoadingState extends State<Loading> with SingleTickerProviderStateMixin {
                     height: 55,
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [AppColors.orange, AppColors.orangeDark],
+                        colors: [AppColors.auburn500, AppColors.auburn700],
                       ),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.orange.withValues(alpha: 0.4),
+                          color: AppColors.auburn500.withValues(alpha: 0.4),
                           blurRadius: 16,
                           offset: const Offset(0, 6),
                         ),
@@ -134,7 +134,7 @@ class _LoadingState extends State<Loading> with SingleTickerProviderStateMixin {
                       onPressed: () => context.push('/about'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0x00000000),
-                        foregroundColor: AppColors.white,
+                        foregroundColor: AppColors.ivory50,
                         shadowColor: const Color(0x00000000),
                         minimumSize: const Size(double.infinity, 55),
                         shape: RoundedRectangleBorder(
@@ -156,10 +156,10 @@ class _LoadingState extends State<Loading> with SingleTickerProviderStateMixin {
                     onPressed: () => context.push('/login'),
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(
-                        color: AppColors.orange.withValues(alpha: 0.6),
+                        color: AppColors.auburn500.withValues(alpha: 0.6),
                         width: 1.5,
                       ),
-                      foregroundColor: AppColors.orange,
+                      foregroundColor: AppColors.auburn500,
                       minimumSize: const Size(double.infinity, 55),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -182,3 +182,4 @@ class _LoadingState extends State<Loading> with SingleTickerProviderStateMixin {
     );
   }
 }
+

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rohii_hostel_hunt/features/search/presentation/pages/search.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/features/hostel/presentation/providers/hostel_provider.dart';
 import 'package:rohii_hostel_hunt/features/location/presentation/providers/location_riverpod_provider.dart';
 import 'package:rohii_hostel_hunt/core/theme/theme_provider.dart';
@@ -60,7 +60,7 @@ class _HomepageState extends ConsumerState<Homepage> {
     final isDark = ref.watch(themeProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background(isDark),
+      backgroundColor: AppColors.appBackground(isDark),
       extendBody: true,
       body: SafeArea(
         top: true,
@@ -76,6 +76,7 @@ class _HomepageState extends ConsumerState<Homepage> {
                 setState(() {
                   selectedFilter = filter;
                 });
+                ref.read(hostelListProvider.notifier).applyFilter(filter);
               },
               isDark: isDark,
             ),
@@ -94,29 +95,35 @@ class _HomepageState extends ConsumerState<Homepage> {
   /// ── PREMIUM HEADER ──────────────────────────────────────────
   /// Bold orange gradient, modern layout, integrated search bar
   Widget _buildHeader(bool isDark) {
+    final textColor = isDark ? AppColors.ivory50 : AppColors.ink900;
+    final headerBg = isDark ? AppColors.ivory900 : AppColors.ivory100;
+    final headerIconBg = isDark ? AppColors.ivory50.withValues(alpha: 0.1) : AppColors.ink900.withValues(alpha: 0.06);
+    final borderColor = isDark ? AppColors.ivory700 : AppColors.ivory300;
+    final searchBarBg = isDark ? AppColors.ivory700 : AppColors.ivory50;
+    final searchBarBorderColor = isDark ? AppColors.ivory500 : AppColors.ivory300;
+    final secondaryTextColor = isDark ? AppColors.ivory300 : AppColors.ink700;
+    final primaryColor = isDark ? AppColors.auburn300 : AppColors.auburn500;
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isDark
-              ? [const Color(0xFF1E1030), const Color(0xFF0F0F1A)]
-              : [AppColors.orange, AppColors.orangeDark],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: headerBg,
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(32),
           bottomRight: Radius.circular(32),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? AppColors.shadow.withValues(alpha: 0.4)
-                : AppColors.orange.withValues(alpha: 0.35),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        border: Border(
+          bottom: BorderSide(color: borderColor, width: 1.5),
+        ),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: AppColors.ink900.withValues(alpha: 0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -136,12 +143,13 @@ class _HomepageState extends ConsumerState<Homepage> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AppColors.white.withValues(alpha: 0.15),
+                          color: headerIconBg,
                           borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: borderColor, width: 0.8),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.location_on_rounded,
-                          color: AppColors.white,
+                          color: primaryColor,
                           size: 20,
                         ),
                       ),
@@ -152,7 +160,7 @@ class _HomepageState extends ConsumerState<Homepage> {
                           Text(
                             "YOUR LOCATION",
                             style: TextStyle(
-                              color: AppColors.white.withValues(alpha: 0.7),
+                              color: secondaryTextColor,
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 1.2,
@@ -167,8 +175,8 @@ class _HomepageState extends ConsumerState<Homepage> {
                                   final locState = ref.watch(locationProvider);
                                   return Text(
                                     locState.selectedCity,
-                                    style: const TextStyle(
-                                      color: AppColors.white,
+                                    style: TextStyle(
+                                      color: textColor,
                                       fontSize: 16,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -176,9 +184,9 @@ class _HomepageState extends ConsumerState<Homepage> {
                                 },
                               ),
                               const SizedBox(width: 4),
-                              const Icon(
+                              Icon(
                                 Icons.keyboard_arrow_down_rounded,
-                                color: AppColors.white,
+                                color: textColor,
                                 size: 18,
                               ),
                             ],
@@ -196,14 +204,15 @@ class _HomepageState extends ConsumerState<Homepage> {
                   child: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppColors.white.withValues(alpha: 0.15),
+                      color: headerIconBg,
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: borderColor, width: 0.8),
                     ),
                     child: Icon(
                       isDark
                           ? Icons.light_mode_rounded
                           : Icons.dark_mode_rounded,
-                      color: AppColors.white,
+                      color: primaryColor,
                       size: 20,
                     ),
                   ),
@@ -217,14 +226,14 @@ class _HomepageState extends ConsumerState<Homepage> {
                     padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.white, width: 2),
+                      border: Border.all(color: primaryColor, width: 2),
                     ),
                     child: CircleAvatar(
                       radius: 18,
-                      backgroundColor: AppColors.white.withValues(alpha: 0.2),
-                      child: const Icon(
+                      backgroundColor: headerIconBg,
+                      child: Icon(
                         Icons.person_rounded,
-                        color: AppColors.white,
+                        color: primaryColor,
                         size: 20,
                       ),
                     ),
@@ -242,17 +251,18 @@ class _HomepageState extends ConsumerState<Homepage> {
                   height: 44,
                   width: 44,
                   decoration: BoxDecoration(
-                    color: AppColors.white.withValues(alpha: 0.2),
+                    color: headerIconBg,
                     borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: borderColor, width: 0.8),
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(14),
                     child: Image.asset(
                       'images/loading.png',
                       fit: BoxFit.cover,
-                      errorBuilder: (_, e, s) => const Icon(
+                      errorBuilder: (_, e, s) => Icon(
                         Icons.home_work_rounded,
-                        color: AppColors.white,
+                        color: primaryColor,
                         size: 24,
                       ),
                     ),
@@ -265,16 +275,16 @@ class _HomepageState extends ConsumerState<Homepage> {
                     Text(
                       "AARUPA MATRIX",
                       style: TextStyle(
-                        color: AppColors.white.withValues(alpha: 0.65),
+                        color: secondaryTextColor,
                         fontSize: 10,
                         letterSpacing: 1.8,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const Text(
+                    Text(
                       "Hostel Hunt",
                       style: TextStyle(
-                        color: AppColors.white,
+                        color: textColor,
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.5,
@@ -324,26 +334,24 @@ class _HomepageState extends ConsumerState<Homepage> {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.white.withValues(
-                    alpha: isDark ? 0.08 : 0.18,
-                  ),
+                  color: searchBarBg,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: AppColors.white.withValues(alpha: 0.12),
+                    color: searchBarBorderColor,
                   ),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.search_rounded,
-                      color: AppColors.white.withValues(alpha: 0.7),
+                      color: secondaryTextColor,
                       size: 20,
                     ),
                     const SizedBox(width: 10),
                     Text(
                       "Search hostels, areas...",
                       style: TextStyle(
-                        color: AppColors.white.withValues(alpha: 0.55),
+                        color: secondaryTextColor,
                         fontSize: 14,
                         fontWeight: FontWeight.w400,
                       ),
@@ -352,12 +360,13 @@ class _HomepageState extends ConsumerState<Homepage> {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: AppColors.white.withValues(alpha: 0.15),
+                        color: headerIconBg,
                         borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: borderColor, width: 0.8),
                       ),
                       child: Icon(
                         Icons.tune_rounded,
-                        color: AppColors.white.withValues(alpha: 0.8),
+                        color: primaryColor,
                         size: 16,
                       ),
                     ),
@@ -389,7 +398,7 @@ class _HomepageState extends ConsumerState<Homepage> {
                 child: CircularProgressIndicator(
                   strokeWidth: 3,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    AppColors.orange.withValues(alpha: 0.8),
+                    AppColors.auburn500.withValues(alpha: 0.8),
                   ),
                 ),
               ),
@@ -430,7 +439,7 @@ class _HomepageState extends ConsumerState<Homepage> {
                 Text(
                   'Could not load hostels',
                   style: TextStyle(
-                    color: AppColors.textPrimary(isDark),
+                    color: AppColors.textHeading(isDark),
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
@@ -455,12 +464,12 @@ class _HomepageState extends ConsumerState<Homepage> {
                     ),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [AppColors.orange, AppColors.orangeDark],
+                        colors: [AppColors.auburn500, AppColors.auburn700],
                       ),
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.orange.withValues(alpha: 0.3),
+                          color: AppColors.auburn500.withValues(alpha: 0.3),
                           blurRadius: 10,
                           offset: const Offset(0, 3),
                         ),
@@ -470,12 +479,12 @@ class _HomepageState extends ConsumerState<Homepage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.refresh_rounded,
-                            color: AppColors.white, size: 18),
+                            color: AppColors.ivory50, size: 18),
                         SizedBox(width: 8),
                         Text(
                           'Retry',
                           style: TextStyle(
-                            color: AppColors.white,
+                            color: AppColors.ivory50,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
@@ -506,22 +515,22 @@ class _HomepageState extends ConsumerState<Homepage> {
                         shape: BoxShape.circle,
                         gradient: LinearGradient(
                           colors: [
-                            AppColors.orange.withValues(alpha: 0.12),
-                            AppColors.orangeLight.withValues(alpha: 0.06),
+                            AppColors.auburn500.withValues(alpha: 0.12),
+                            AppColors.auburn300.withValues(alpha: 0.06),
                           ],
                         ),
                       ),
                       child: Icon(
                         Icons.apartment_rounded,
                         size: 44,
-                        color: AppColors.orange.withValues(alpha: 0.55),
+                        color: AppColors.auburn500.withValues(alpha: 0.55),
                       ),
                     ),
                     const SizedBox(height: 20),
                     Text(
                       'No hostels available',
                       style: TextStyle(
-                        color: AppColors.textPrimary(isDark),
+                        color: AppColors.textHeading(isDark),
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                       ),

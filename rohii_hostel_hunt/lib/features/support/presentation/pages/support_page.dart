@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/theme/notifiers.dart';
 import 'package:rohii_hostel_hunt/shared/widgets/sub_header.dart';
 
@@ -22,7 +22,7 @@ class SupportPage extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: themeNotifier,
       builder: (context, isDark, _) => Scaffold(
-        backgroundColor: AppColors.background(isDark),
+        backgroundColor: AppColors.appBackground(isDark),
         body: Column(
           children: [
             SubHeader(title: 'Support & Help', subtitle: 'We are here to help you', isDark: isDark),
@@ -34,7 +34,7 @@ class SupportPage extends StatelessWidget {
                   // Quick actions
                   Row(children: [
                     Expanded(child: _SupportAction(icon: Icons.chat_bubble_outline_rounded, label: 'Live Chat',
-                        color: AppColors.orange, isDark: isDark, onTap: () => _snack(context, 'Live Chat'))),
+                        color: AppColors.auburn500, isDark: isDark, onTap: () => _snack(context, 'Live Chat'))),
                     const SizedBox(width: 10),
                     Expanded(child: _SupportAction(icon: Icons.email_outlined, label: 'Email Us',
                         color: const Color(0xFF1565C0), isDark: isDark, onTap: () => _snack(context, 'Email'))),
@@ -46,26 +46,26 @@ class SupportPage extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(left: 4, bottom: 12),
                     child: Text('FREQUENTLY ASKED QUESTIONS',
-                        style: TextStyle(color: AppColors.textTertiary(isDark), fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.1)),
+                        style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.1)),
                   ),
                   ..._faqs.map((f) => _FAQTile(faq: f, isDark: isDark)),
                   const SizedBox(height: 20),
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [AppColors.orange, AppColors.orangeDark],
+                      gradient: const LinearGradient(colors: [AppColors.auburn500, AppColors.auburn700],
                           begin: Alignment.topLeft, end: Alignment.bottomRight),
                       borderRadius: BorderRadius.circular(18),
-                      boxShadow: [BoxShadow(color: AppColors.orange.withValues(alpha: 0.25), blurRadius: 14, offset: const Offset(0, 5))],
+                      boxShadow: [BoxShadow(color: AppColors.auburn500.withValues(alpha: 0.25), blurRadius: 14, offset: const Offset(0, 5))],
                     ),
                     child: Row(children: [
-                      const Icon(Icons.support_agent_rounded, color: AppColors.white, size: 28),
+                      const Icon(Icons.support_agent_rounded, color: AppColors.ivory50, size: 28),
                       const SizedBox(width: 14),
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text('Need more help?', style: TextStyle(color: AppColors.white, fontSize: 15, fontWeight: FontWeight.w700)),
-                        Text('Contact us at support@hostelhunt.in', style: TextStyle(color: AppColors.white.withValues(alpha: 0.8), fontSize: 12)),
+                        const Text('Need more help?', style: TextStyle(color: AppColors.ivory50, fontSize: 15, fontWeight: FontWeight.w700)),
+                        Text('Contact us at support@hostelhunt.in', style: TextStyle(color: AppColors.ivory50.withValues(alpha: 0.8), fontSize: 12)),
                       ])),
-                      const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.white, size: 16),
+                      const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.ivory50, size: 16),
                     ]),
                   ),
                 ],
@@ -80,8 +80,8 @@ class SupportPage extends StatelessWidget {
   void _snack(BuildContext context, String label) {
     HapticFeedback.lightImpact();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('$label — coming soon!', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w500)),
-      backgroundColor: AppColors.orange,
+      content: Text('$label — coming soon!', style: const TextStyle(color: AppColors.ivory50, fontWeight: FontWeight.w500)),
+      backgroundColor: AppColors.auburn500,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -137,7 +137,7 @@ class _FAQTileState extends State<_FAQTile> {
       decoration: BoxDecoration(
         color: AppColors.cardBg(widget.isDark),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: widget.isDark ? AppColors.chipDark : AppColors.border, width: 0.8),
+        border: Border.all(color: widget.isDark ? AppColors.ivory700 : AppColors.ivory300, width: 0.8),
       ),
       child: Column(children: [
         GestureDetector(
@@ -146,9 +146,9 @@ class _FAQTileState extends State<_FAQTile> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(children: [
               Expanded(child: Text(widget.faq.q,
-                  style: TextStyle(color: AppColors.textPrimary(widget.isDark), fontSize: 14, fontWeight: FontWeight.w600))),
+                  style: TextStyle(color: AppColors.textHeading(widget.isDark), fontSize: 14, fontWeight: FontWeight.w600))),
               Icon(_open ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                  color: AppColors.orange, size: 22),
+                  color: AppColors.auburn500, size: 22),
             ]),
           ),
         ),
@@ -162,3 +162,4 @@ class _FAQTileState extends State<_FAQTile> {
     );
   }
 }
+

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
@@ -8,17 +7,16 @@ import 'package:rohii_hostel_hunt/core/network/api_provider.dart';
 /// Hostel Hunt — Hostel List Provider (Riverpod)
 /// ─────────────────────────────────────────────────────────
 ///
-/// Direct translation of HostelController (GetxController) into
-/// a Riverpod AsyncNotifier. All business logic is preserved 1:1.
-///
-/// The 7 Rx variables in HostelController are collapsed into
-/// Riverpod's AsyncValue<List<Hostel>> which natively provides:
-///   • isLoading
-///   • hasError / error
-///   • data (the hostel list)
+/// Supports filter query params:
+///   • gender_type: 'boys' | 'girls' | 'mixed'
+///   • amenity:     'ac'
+///   • no params:   All hostels (no filter)
 
 class HostelListNotifier extends AsyncNotifier<List<Hostel>> {
   late final ApiService _api;
+
+  // Current active filters
+  Map<String, String> _activeFilters = {};
 
   @override
   Future<List<Hostel>> build() {
@@ -26,9 +24,12 @@ class HostelListNotifier extends AsyncNotifier<List<Hostel>> {
     return _fetchHostels();
   }
 
-  /// Core fetch logic — 1:1 translation of HostelController.fetchHostels()
+  /// Core fetch logic with optional filter params
   Future<List<Hostel>> _fetchHostels() async {
-    final response = await _api.getRaw('/hostels/');
+    final response = await _api.getRaw(
+      '/hostels/',
+      queryParams: _activeFilters.isEmpty ? null : _activeFilters,
+    );
 
     if (!response.success) {
       throw Exception(response.message);
@@ -52,7 +53,44 @@ class HostelListNotifier extends AsyncNotifier<List<Hostel>> {
         .toList();
   }
 
-  /// Retry / refresh — equivalent to HostelController.fetchHostels()
+  /// Apply a filter chip selection and re-fetch
+  Future<void> applyFilter(String filter) async {
+    switch (filter) {
+      case 'All':
+        _activeFilters = {};
+      case 'Boys':
+        _activeFilters = {'gender_type': 'boys'};
+      case 'Girls':
+        _activeFilters = {'gender_type': 'girls'};
+      case 'AC':
+        _activeFilters = {'amenity': 'ac'};
+      case 'Non-AC':
+        // Non-AC: fetch all and client-side exclude those with AC amenity
+        // (backend doesn't support negation on JSON arrays easily)
+        _activeFilters = {};
+      case 'Premium':
+        _activeFilters = {};
+      default:
+        _activeFilters = {};
+    }
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      var hostels = await _fetchHostels();
+      // Client-side post-filter for Non-AC (exclude hostels with 'ac' amenity)
+      if (filter == 'Non-AC') {
+        hostels = hostels
+            .where((h) => !h.amenities.any((a) => a.toLowerCase() == 'ac'))
+            .toList();
+      }
+      // Premium: show only hostels that have ≥5 amenities (simple heuristic)
+      if (filter == 'Premium') {
+        hostels = hostels.where((h) => h.amenities.length >= 5).toList();
+      }
+      return hostels;
+    });
+  }
+
+  /// Retry / refresh with current filters
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(_fetchHostels);

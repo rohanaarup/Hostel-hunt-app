@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Central HTTP client for all Django API calls.
@@ -27,25 +28,33 @@ class ApiService {
   // Configuration
   // ─────────────────────────────────────────────────────────────────────────
 
+  // Toggle this to true if you want to test against your local Django server
+  static const bool useLocalBackend = true;
+
   /// Platform-aware base URL:
-  ///   Flutter Web  → http://127.0.0.1:8000  (localhost, same machine)
-  ///   Android emu  → http://10.0.2.2:8000   (emulator alias for host)
-  ///   iOS sim/dev  → http://localhost:8000
-  ///   Production   → replace with https://api.yourdomain.com
+  ///   Flutter Web  → http://127.0.0.1:8001  (localhost, same machine)
+  ///   Android emu  → http://10.0.2.2:8001   (emulator alias for host)
+  ///   iOS sim/dev  → http://localhost:8001
+  ///   Production   → https://rohii-backend.onrender.com/api
   static String get baseUrl {
+    if (!useLocalBackend) {
+      // TODO: Replace with your ACTUAL Render backend URL!
+      return 'https://hostel-hunt-backend.onrender.com/api/v1';
+    }
+
     if (kIsWeb) {
       // Flutter Web runs in Chrome — can reach the host directly
-      return 'http://127.0.0.1:8000/api';
+      return 'http://127.0.0.1:8000/api/v1';
     }
     if (Platform.isAndroid) {
-      // Android emulator uses 10.0.2.2 to reach the host's localhost
-      return 'http://10.0.2.2:8000/api';
+      // For physical Android devices on the same Wi-Fi to reach your PC
+      return 'http://192.168.1.43:8000/api/v1';
     }
     // iOS simulator and macOS can reach localhost directly
-    return 'http://localhost:8000/api';
+    return 'http://localhost:8000/api/v1';
   }
 
-  static const Duration _timeout = Duration(seconds: 30);
+  static const Duration _timeout = Duration(seconds: 60);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Token Storage
@@ -113,7 +122,8 @@ class ApiService {
       return ApiResponse.fromResponse(response);
     } on TimeoutException {
       return ApiResponse.timeoutError();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('API Error (post): $e');
       return ApiResponse.networkError();
     }
   }
@@ -122,6 +132,7 @@ class ApiService {
   Future<ApiResponse> authPost(String path, Map<String, dynamic> body) async {
     return _authenticatedRequest(() async {
       final token = await getAccessToken();
+      debugPrint('[API] authPost $path | Token: ${token != null ? "present" : "MISSING"}');
       return http.post(
         Uri.parse('$baseUrl$path'),
         headers: _headers(accessToken: token),
@@ -137,11 +148,58 @@ class ApiService {
   }) async {
     return _authenticatedRequest(() async {
       final token = await getAccessToken();
+      debugPrint('[API] authGet $path | Token: ${token != null ? "present" : "MISSING"}');
       final uri = Uri.parse(
         '$baseUrl$path',
       ).replace(queryParameters: queryParams);
       return http.get(uri, headers: _headers(accessToken: token));
     });
+  }
+
+  /// Authenticated PATCH — sends JSON body, retries once on 401
+  Future<ApiResponse> authPatch(String path, Map<String, dynamic> body) async {
+    return _authenticatedRequest(() async {
+      final token = await getAccessToken();
+      return http.patch(
+        Uri.parse('$baseUrl$path'),
+        headers: _headers(accessToken: token),
+        body: jsonEncode(body),
+      );
+    });
+  }
+
+  /// Authenticated multipart POST — for file uploads (e.g. profile photo)
+  Future<ApiResponse> authMultipartPost(
+    String path, {
+    required String fieldName,
+    required List<int> bytes,
+    required String filename,
+    required String mimeType,
+  }) async {
+    try {
+      final token = await getAccessToken();
+      final uri = Uri.parse('$baseUrl$path');
+      final parts = mimeType.split('/');
+      final contentType = parts.length == 2
+          ? MediaType(parts[0], parts[1])
+          : MediaType('image', 'jpeg');
+      final request = http.MultipartRequest('POST', uri)
+        ..headers['Authorization'] = 'Bearer $token'
+        ..files.add(http.MultipartFile.fromBytes(
+          fieldName,
+          bytes,
+          filename: filename,
+          contentType: contentType,
+        ));
+      final streamed = await request.send().timeout(_timeout);
+      final response = await http.Response.fromStream(streamed);
+      return ApiResponse.fromResponse(response);
+    } on TimeoutException {
+      return ApiResponse.timeoutError();
+    } catch (e) {
+      debugPrint('Multipart upload error: $e');
+      return ApiResponse.networkError();
+    }
   }
 
   /// Public GET — no auth header. Returns raw decoded JSON body.
@@ -161,7 +219,8 @@ class ApiService {
       return RawApiResponse.fromResponse(response);
     } on TimeoutException {
       return RawApiResponse.timeoutError();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('API Error (getRaw): $e');
       return RawApiResponse.networkError();
     }
   }
@@ -174,10 +233,28 @@ class ApiService {
   }) async {
     return _authenticatedRawRequest(() async {
       final token = await getAccessToken();
+      debugPrint('[API] authGetRaw $path | Token: ${token != null ? "present" : "MISSING"}');
       final uri = Uri.parse(
         '$baseUrl$path',
       ).replace(queryParameters: queryParams);
       return http.get(uri, headers: _headers(accessToken: token));
+    });
+  }
+
+  /// Authenticated POST — returns raw decoded JSON body.
+  /// Use for DRF endpoints that return raw response without envelope (e.g. ModelViewSet POST).
+  Future<RawApiResponse> authPostRaw(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    return _authenticatedRawRequest(() async {
+      final token = await getAccessToken();
+      debugPrint('[API] authPostRaw $path | Token: ${token != null ? "present" : "MISSING"}');
+      return http.post(
+        Uri.parse('$baseUrl$path'),
+        headers: _headers(accessToken: token),
+        body: jsonEncode(body),
+      );
     });
   }
 
@@ -269,11 +346,13 @@ class ApiService {
         }
       }
       return false;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('API Error (_refreshToken): $e');
       return false;
     }
   }
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Response Model
@@ -301,7 +380,8 @@ class ApiResponse {
         data: body['data'] as Map<String, dynamic>?,
         statusCode: response.statusCode,
       );
-    } catch (_) {
+    } catch (e) {
+      debugPrint('API Error (ApiResponse.fromResponse): $e');
       return ApiResponse(
         success: false,
         message: 'Unexpected server response.',
@@ -353,7 +433,11 @@ class RawApiResponse {
         body: decoded,
         statusCode: response.statusCode,
       );
-    } catch (_) {
+    } catch (e) {
+      debugPrint('API Error (RawApiResponse.fromResponse): $e');
+      debugPrint('URL: ${response.request?.url}');
+      debugPrint('Status Code: ${response.statusCode}');
+      debugPrint('Response Body (first 200 chars): ${response.body.length > 200 ? response.body.substring(0, 200) : response.body}');
       return RawApiResponse(
         success: false,
         message: 'Unexpected server response.',

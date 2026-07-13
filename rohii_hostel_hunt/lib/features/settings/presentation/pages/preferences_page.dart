@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/theme/notifiers.dart';
 
 // ── Preferences Page ─────────────────────────────────────────────────────────
@@ -28,7 +28,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
     HapticFeedback.mediumImpact();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: const Text('Preferences saved!',
-          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w500)),
+          style: TextStyle(color: AppColors.ivory50, fontWeight: FontWeight.w500)),
       backgroundColor: AppColors.success,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -41,7 +41,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
     return ValueListenableBuilder<bool>(
       valueListenable: themeNotifier,
       builder: (context, isDark, _) => Scaffold(
-        backgroundColor: AppColors.background(isDark),
+        backgroundColor: AppColors.appBackground(isDark),
         body: Column(
           children: [
             _SubHeader(title: 'Preferences', subtitle: 'Personalize your hostel search', isDark: isDark),
@@ -54,21 +54,21 @@ class _PreferencesPageState extends State<PreferencesPage> {
                     // Budget range
                     _PrefCard(
                       isDark: isDark, title: 'Budget Range',
-                      icon: Icons.currency_rupee_rounded, iconColor: AppColors.orange,
+                      icon: Icons.currency_rupee_rounded, iconColor: AppColors.auburn500,
                       child: Column(children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('₹${_budget.start.round()}', style: TextStyle(color: AppColors.orange, fontWeight: FontWeight.w700, fontSize: 15)),
-                            Text('₹${_budget.end.round()}', style: TextStyle(color: AppColors.orange, fontWeight: FontWeight.w700, fontSize: 15)),
+                            Text('₹${_budget.start.round()}', style: TextStyle(color: AppColors.auburn500, fontWeight: FontWeight.w700, fontSize: 15)),
+                            Text('₹${_budget.end.round()}', style: TextStyle(color: AppColors.auburn500, fontWeight: FontWeight.w700, fontSize: 15)),
                           ],
                         ),
                         SliderTheme(
                           data: SliderThemeData(
-                            activeTrackColor: AppColors.orange,
-                            inactiveTrackColor: AppColors.orange.withValues(alpha: 0.2),
-                            thumbColor: AppColors.orange,
-                            overlayColor: AppColors.orange.withValues(alpha: 0.15),
+                            activeTrackColor: AppColors.auburn500,
+                            inactiveTrackColor: AppColors.auburn500.withValues(alpha: 0.2),
+                            thumbColor: AppColors.auburn500,
+                            overlayColor: AppColors.auburn500.withValues(alpha: 0.15),
                             rangeThumbShape: const RoundRangeSliderThumbShape(enabledThumbRadius: 10),
                           ),
                           child: RangeSlider(
@@ -78,8 +78,8 @@ class _PreferencesPageState extends State<PreferencesPage> {
                           ),
                         ),
                         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                          Text('₹1,000', style: TextStyle(color: AppColors.textTertiary(isDark), fontSize: 11)),
-                          Text('₹20,000', style: TextStyle(color: AppColors.textTertiary(isDark), fontSize: 11)),
+                          Text('₹1,000', style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 11)),
+                          Text('₹20,000', style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 11)),
                         ]),
                       ]),
                     ),
@@ -145,12 +145,12 @@ class _PreferencesPageState extends State<PreferencesPage> {
           padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
           decoration: BoxDecoration(
             color: AppColors.cardBg(isDark),
-            border: Border(top: BorderSide(color: isDark ? AppColors.chipDark : AppColors.border, width: 0.8)),
+            border: Border(top: BorderSide(color: isDark ? AppColors.ivory700 : AppColors.ivory300, width: 0.8)),
           ),
           child: ElevatedButton(
             onPressed: () => _save(isDark),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.orange, foregroundColor: AppColors.white,
+              backgroundColor: AppColors.auburn500, foregroundColor: AppColors.ivory50,
               elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
@@ -178,7 +178,7 @@ class _PrefCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardBg(isDark),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark ? AppColors.chipDark : AppColors.border, width: 0.8),
+        border: Border.all(color: isDark ? AppColors.ivory700 : AppColors.ivory300, width: 0.8),
         boxShadow: [BoxShadow(color: AppColors.shadow.withValues(alpha: isDark ? 0.16 : 0.05), blurRadius: 12, offset: const Offset(0, 4))],
       ),
       child: Column(
@@ -191,7 +191,7 @@ class _PrefCard extends StatelessWidget {
               child: Icon(icon, size: 18, color: iconColor),
             ),
             const SizedBox(width: 10),
-            Text(title, style: TextStyle(color: AppColors.textPrimary(isDark), fontSize: 14, fontWeight: FontWeight.w700)),
+            Text(title, style: TextStyle(color: AppColors.textHeading(isDark), fontSize: 14, fontWeight: FontWeight.w700)),
           ]),
           const SizedBox(height: 14),
           child,
@@ -222,15 +222,15 @@ class _ChipGroup extends StatelessWidget {
             duration: const Duration(milliseconds: 180),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: isSelected ? AppColors.orange : AppColors.chipBg(isDark),
+              color: isSelected ? AppColors.auburn500 : AppColors.chipInactiveBg(isDark),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isSelected ? AppColors.orange : (isDark ? AppColors.chipDark : AppColors.border),
+                color: isSelected ? AppColors.auburn500 : (isDark ? AppColors.ivory700 : AppColors.ivory300),
               ),
             ),
             child: Text(opt,
                 style: TextStyle(
-                  color: isSelected ? AppColors.white : AppColors.textSecondary(isDark),
+                  color: isSelected ? AppColors.ivory50 : AppColors.textSecondary(isDark),
                   fontSize: 13, fontWeight: FontWeight.w600,
                 )),
           ),
@@ -253,7 +253,7 @@ class _SubHeader extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(16, top + 12, 16, 20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: isDark ? [AppColors.cardDark, AppColors.surfaceDark2] : [AppColors.headerStart, AppColors.headerEnd],
+          colors: isDark ? [AppColors.ivory900, AppColors.ivory900] : [AppColors.ivory100, AppColors.ivory50],
           begin: Alignment.topLeft, end: Alignment.bottomRight,
         ),
         borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
@@ -266,16 +266,16 @@ class _SubHeader extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isDark ? AppColors.chipDark : AppColors.white.withValues(alpha: 0.75),
+                color: isDark ? AppColors.ivory700 : AppColors.ivory50.withValues(alpha: 0.75),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: isDark ? AppColors.white.withValues(alpha: 0.08) : AppColors.border, width: 0.8),
+                border: Border.all(color: isDark ? AppColors.ivory50.withValues(alpha: 0.08) : AppColors.ivory300, width: 0.8),
               ),
-              child: Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: AppColors.textPrimary(isDark)),
+              child: Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: AppColors.textHeading(isDark)),
             ),
           ),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: TextStyle(color: AppColors.textPrimary(isDark), fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+            Text(title, style: TextStyle(color: AppColors.textHeading(isDark), fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
             Text(subtitle, style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 12)),
           ])),
         ],
@@ -283,3 +283,4 @@ class _SubHeader extends StatelessWidget {
     );
   }
 }
+

@@ -1,6 +1,7 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/utils/call.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
 import 'dart:async';
@@ -28,6 +29,7 @@ class _SignupPageState extends State<SignupPage> {
   Timer? _countdownTimer;
   bool _passwordVisible = false;
   bool _confirmPasswordVisible = false;
+  String _verificationToken = ''; // received from /otp/verify/ response
 
   @override
   void dispose() {
@@ -59,6 +61,7 @@ class _SignupPageState extends State<SignupPage> {
   }
 
   Future<void> _sendOTP() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final fullName = _fullNameController.text.trim();
     final email = _emailController.text.trim().toLowerCase();
 
@@ -90,13 +93,13 @@ class _SignupPageState extends State<SignupPage> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.orange.shade50,
+                color: isDark ? AppColors.ivory700 : AppColors.auburn50,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange),
+                border: Border.all(color: isDark ? AppColors.auburn300 : AppColors.auburn500),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.email, color: Colors.orange),
+                  Icon(Icons.email, color: isDark ? AppColors.auburn300 : AppColors.auburn500),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -108,9 +111,9 @@ class _SignupPageState extends State<SignupPage> {
               ),
             ),
             const SizedBox(height: 10),
-            const Text(
+            Text(
               '⚠️ Make sure this is correct! OTP will be sent to this email.',
-              style: TextStyle(fontSize: 12, color: Colors.red, fontStyle: FontStyle.italic),
+              style: TextStyle(fontSize: 12, color: AppColors.error, fontStyle: FontStyle.italic),
             ),
           ],
         ),
@@ -121,7 +124,10 @@ class _SignupPageState extends State<SignupPage> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark ? AppColors.auburn300 : AppColors.auburn500,
+              foregroundColor: isDark ? AppColors.ink900 : AppColors.ivory50,
+            ),
             child: const Text('Confirm & Send OTP'),
           ),
         ],
@@ -135,8 +141,12 @@ class _SignupPageState extends State<SignupPage> {
 
     try {
       final response = await _api.post(
-        '/otp/send/',
-        {'email': email, 'display_name': fullName},
+        '/auth/send-otp/',
+        {
+          'identifier': email,
+          'identifier_type': 'email',
+          'purpose': 'signup',
+        },
       );
 
       if (!response.success) {
@@ -147,7 +157,7 @@ class _SignupPageState extends State<SignupPage> {
       setState(() { _otpSent = true; _isLoading = false; });
       _startResendCountdown();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('OTP sent to your email!'), backgroundColor: Colors.green),
+        SnackBar(content: const Text('OTP sent to your email!'), backgroundColor: AppColors.emerald500),
       );
     } catch (e) {
       // Show more detailed error for debugging
@@ -174,12 +184,20 @@ class _SignupPageState extends State<SignupPage> {
 
     try {
       final email = _emailController.text.trim().toLowerCase();
-      final response = await _api.post('/otp/verify/', {'email': email, 'otp': otp});
+      final response = await _api.post('/auth/verify-otp/', {
+        'identifier': email,
+        'identifier_type': 'email',
+        'otp': otp,
+        'purpose': 'signup',
+      });
 
       if (response.success) {
+        // Store the verification_token from backend
+        final token = response.data?['verification_token'] as String?;
+        _verificationToken = token ?? '';
         setState(() { _otpVerified = true; _isLoading = false; });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response.message), backgroundColor: Colors.green),
+          SnackBar(content: Text(response.message), backgroundColor: AppColors.emerald500),
         );
       } else {
         setState(() { _errorMessage = response.message; _isLoading = false; });
@@ -214,11 +232,11 @@ class _SignupPageState extends State<SignupPage> {
       final email = _emailController.text.trim().toLowerCase();
 
       final response = await _api.post('/auth/register/', {
-        'email': email,
+        'identifier': email,
+        'identifier_type': 'email',
         'display_name': fullName,
         'password': password,
-        'password_confirm': confirmPassword,
-        'signup_source': 'app',
+        'verification_token': _verificationToken,
       });
 
       setState(() => _isLoading = false);
@@ -229,10 +247,10 @@ class _SignupPageState extends State<SignupPage> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Account created successfully! Please login.'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: const Text('Account created successfully! Please login.'),
+          backgroundColor: AppColors.emerald500,
+          duration: const Duration(seconds: 2),
         ),
       );
       await Future.delayed(const Duration(seconds: 1));
@@ -241,45 +259,55 @@ class _SignupPageState extends State<SignupPage> {
       setState(() { _errorMessage = 'Sign up failed. Please try again.'; _isLoading = false; });
     }
   }
-//backend part end
 
-
-//design part start------------------------------------------------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = isDark ? AppColors.auburn300 : AppColors.auburn500;
+    final scaffoldBg = isDark ? AppColors.ink900 : AppColors.ivory50;
+    final cardBg = isDark ? AppColors.ivory900 : AppColors.ivory50;
+    final cardBorder = isDark ? AppColors.ivory700 : AppColors.ivory300;
+    final inputBg = isDark ? AppColors.ink900 : AppColors.ivory100;
+    final inputBorder = isDark ? AppColors.ivory700 : AppColors.ivory300;
+    final textColor = isDark ? AppColors.ivory50 : AppColors.ink900;
+    final hintColor = AppColors.ivory500;
+    final headerColor = isDark ? AppColors.ember500 : AppColors.ember700;
+
     return Scaffold(
-      backgroundColor: const Color.fromARGB(209, 142, 142, 142),
+      backgroundColor: scaffoldBg,
       body: SafeArea(
         child: Stack(
           children: [
-            Column(
-              children: [
-                Container(
-                  height: 160,
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: AppColors.secondary,
-                    borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(40),
-                      bottomRight: Radius.circular(40),
-                    ),
+            // Layer 1: Decorative background blobs
+            Positioned(
+              top: -60,
+              left: -60,
+              child: ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 70, sigmaY: 70),
+                child: Container(
+                  width: 300,
+                  height: 300,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.ember300.withValues(alpha: 0.12) : AppColors.ember500.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
                   ),
                 ),
-
-                const Spacer(),
-
-                Container(
-                  height: 120,
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: AppColors.secondary,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(40),
-                      topRight: Radius.circular(40),
-                    ),
+              ),
+            ),
+            Positioned(
+              bottom: -100,
+              right: -80,
+              child: ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
+                child: Container(
+                  width: 350,
+                  height: 350,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.ember300.withValues(alpha: 0.12) : AppColors.ember500.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
                   ),
                 ),
-              ],
+              ),
             ),
             Positioned(
               top: 120,
@@ -289,9 +317,17 @@ class _SignupPageState extends State<SignupPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Container(
                   height: 550,
-                  decoration: const BoxDecoration(
-                    color: Color.fromARGB(255, 67, 67, 67),
-                    borderRadius: BorderRadius.all(Radius.circular(40)),
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(40),
+                    border: Border.all(color: cardBorder, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.ink900.withValues(alpha: 0.08),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
                   child: SingleChildScrollView(
                     child: Padding(
@@ -301,7 +337,12 @@ class _SignupPageState extends State<SignupPage> {
                         children: [
                           Text(
                             "S I G N  U P",
-                            style: AppCall.headlineTextFieldStyle(),
+                            style: AppCall.headlineTextFieldStyle().copyWith(
+                              color: headerColor,
+                              fontStyle: FontStyle.italic,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 2.0,
+                            ),
                           ),
                           const SizedBox(height: 20),
 
@@ -310,18 +351,18 @@ class _SignupPageState extends State<SignupPage> {
                               padding: const EdgeInsets.all(12),
                               margin: const EdgeInsets.only(bottom: 10),
                               decoration: BoxDecoration(
-                                color: Colors.red.shade900.withOpacity(0.3),
+                                color: AppColors.error.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.red),
+                                border: Border.all(color: AppColors.error),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.error_outline, color: Colors.red),
+                                  Icon(Icons.error_outline, color: AppColors.error),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
                                       _errorMessage,
-                                      style: const TextStyle(color: Colors.red),
+                                      style: TextStyle(color: AppColors.error),
                                     ),
                                   ),
                                 ],
@@ -333,31 +374,29 @@ class _SignupPageState extends State<SignupPage> {
                             child: TextField(
                               controller: _fullNameController,
                               enabled: !_otpSent,
-                              style: const TextStyle(color: Color.fromARGB(255, 18, 17, 17)),
+                              style: TextStyle(color: textColor),
                               decoration: InputDecoration(
                                 hintText: "Full Name",
-                                hintStyle: const TextStyle(
-                                  color: Color.fromARGB(179, 24, 24, 24),
+                                hintStyle: TextStyle(
+                                  color: hintColor,
                                 ),
-                                prefixIconColor: Colors.deepOrange,
+                                prefixIconColor: primaryColor,
                                 prefixIcon: const Icon(Icons.person),
-                                border: UnderlineInputBorder(
+                                filled: true,
+                                fillColor: inputBg,
+                                enabledBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(color: inputBorder),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                enabledBorder: UnderlineInputBorder(
-                                  borderSide: const BorderSide(color: Color.fromARGB(255, 5, 5, 5)),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(color: primaryColor, width: 2),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                focusedBorder: UnderlineInputBorder(
-                                  borderSide: const BorderSide(
-                                    color: Colors.deepOrange,
-                                  ),
+                                disabledBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(color: isDark ? AppColors.ivory700 : AppColors.ivory300),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                disabledBorder: UnderlineInputBorder(
-                                  borderSide: const BorderSide(color: Color.fromARGB(255, 18, 17, 17)),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
+                                contentPadding: const EdgeInsets.symmetric(vertical: 18),
                               ),
                             ),
                           ),
@@ -368,31 +407,29 @@ class _SignupPageState extends State<SignupPage> {
                               controller: _emailController,
                               enabled: !_otpSent,
                               keyboardType: TextInputType.emailAddress,
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(color: textColor),
                               decoration: InputDecoration(
                                 hintText: "Email",
-                                hintStyle: const TextStyle(
-                                  color: Color.fromARGB(179, 201, 197, 197),
+                                hintStyle: TextStyle(
+                                  color: hintColor,
                                 ),
-                                prefixIconColor: Colors.deepOrange,
+                                prefixIconColor: primaryColor,
                                 prefixIcon: const Icon(Icons.email),
-                                border: UnderlineInputBorder(
+                                filled: true,
+                                fillColor: inputBg,
+                                enabledBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(color: inputBorder),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                enabledBorder: UnderlineInputBorder(
-                                  borderSide: const BorderSide(color: Colors.grey),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(color: primaryColor, width: 2),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                focusedBorder: UnderlineInputBorder(
-                                  borderSide: const BorderSide(
-                                    color: Colors.deepOrange,
-                                  ),
+                                disabledBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(color: isDark ? AppColors.ivory700 : AppColors.ivory300),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                disabledBorder: UnderlineInputBorder(
-                                  borderSide: const BorderSide(color: Colors.grey),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
+                                contentPadding: const EdgeInsets.symmetric(vertical: 18),
                               ),
                             ),
                           ),
@@ -403,19 +440,22 @@ class _SignupPageState extends State<SignupPage> {
                               child: ElevatedButton(
                                 onPressed: _isLoading ? null : _sendOTP,
                                 style: ElevatedButton.styleFrom(
-                                  foregroundColor: AppColors.textDark,
-                                  backgroundColor: Colors.orange,
+                                  foregroundColor: isDark ? AppColors.ink900 : AppColors.ivory50,
+                                  backgroundColor: primaryColor,
+                                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(20),
                                   ),
+                                  shadowColor: AppColors.auburn700.withValues(alpha: 0.2),
+                                  elevation: 8,
                                 ),
                                 child: _isLoading
-                                    ? const SizedBox(
+                                    ? SizedBox(
                                         height: 20,
                                         width: 20,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
-                                          color: Colors.white,
+                                          color: isDark ? AppColors.ink900 : AppColors.ivory50,
                                         ),
                                       )
                                     : const Text(
@@ -435,28 +475,26 @@ class _SignupPageState extends State<SignupPage> {
                                 controller: _otpController,
                                 keyboardType: TextInputType.number,
                                 maxLength: 6,
-                                style: const TextStyle(color: Colors.white),
+                                style: TextStyle(color: textColor),
                                 decoration: InputDecoration(
                                   hintText: "Enter OTP",
-                                  hintStyle: const TextStyle(
-                                    color: Color.fromARGB(179, 201, 197, 197),
+                                  hintStyle: TextStyle(
+                                    color: hintColor,
                                   ),
-                                  prefixIconColor: Colors.deepOrange,
+                                  prefixIconColor: primaryColor,
                                   prefixIcon: const Icon(Icons.lock_clock),
                                   counterText: '',
-                                  border: UnderlineInputBorder(
+                                  filled: true,
+                                  fillColor: inputBg,
+                                  enabledBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(color: inputBorder),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
-                                  enabledBorder: UnderlineInputBorder(
-                                    borderSide: const BorderSide(color: Colors.grey),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(color: primaryColor, width: 2),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
-                                  focusedBorder: UnderlineInputBorder(
-                                    borderSide: const BorderSide(
-                                      color: Colors.deepOrange,
-                                    ),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 18),
                                 ),
                               ),
                             ),
@@ -470,19 +508,19 @@ class _SignupPageState extends State<SignupPage> {
                                     child: ElevatedButton(
                                       onPressed: _isLoading ? null : _verifyOTP,
                                       style: ElevatedButton.styleFrom(
-                                        foregroundColor: AppColors.textDark,
-                                        backgroundColor: Colors.orange,
+                                        foregroundColor: isDark ? AppColors.ink900 : AppColors.ivory50,
+                                        backgroundColor: primaryColor,
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(20),
                                         ),
                                       ),
                                       child: _isLoading
-                                          ? const SizedBox(
+                                          ? SizedBox(
                                               height: 20,
                                               width: 20,
                                               child: CircularProgressIndicator(
                                                 strokeWidth: 2,
-                                                color: Colors.white,
+                                                color: isDark ? AppColors.ink900 : AppColors.ivory50,
                                               ),
                                             )
                                           : const Text(
@@ -503,8 +541,8 @@ class _SignupPageState extends State<SignupPage> {
                                           : "Resend ($_resendCountdown)",
                                       style: TextStyle(
                                         color: _canResendOTP
-                                            ? Colors.orange
-                                            : Colors.grey,
+                                            ? primaryColor
+                                            : AppColors.ivory500,
                                       ),
                                     ),
                                   ),
@@ -518,20 +556,20 @@ class _SignupPageState extends State<SignupPage> {
                               child: TextField(
                                 controller: _passwordController,
                                 obscureText: !_passwordVisible,
-                                style: const TextStyle(color: Colors.white),
+                                style: TextStyle(color: textColor),
                                 decoration: InputDecoration(
                                   hintText: "Create Password",
-                                  hintStyle: const TextStyle(
-                                    color: Color.fromARGB(179, 201, 197, 197),
+                                  hintStyle: TextStyle(
+                                    color: hintColor,
                                   ),
-                                  prefixIconColor: Colors.deepOrange,
+                                  prefixIconColor: primaryColor,
                                   prefixIcon: const Icon(Icons.lock),
                                   suffixIcon: IconButton(
                                     icon: Icon(
                                       _passwordVisible
                                           ? Icons.visibility
                                           : Icons.visibility_off,
-                                      color: Colors.grey,
+                                      color: hintColor,
                                     ),
                                     onPressed: () {
                                       setState(() {
@@ -539,19 +577,17 @@ class _SignupPageState extends State<SignupPage> {
                                       });
                                     },
                                   ),
-                                  border: UnderlineInputBorder(
+                                  filled: true,
+                                  fillColor: inputBg,
+                                  enabledBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(color: inputBorder),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
-                                  enabledBorder: UnderlineInputBorder(
-                                    borderSide: const BorderSide(color: Colors.grey),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(color: primaryColor, width: 2),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
-                                  focusedBorder: UnderlineInputBorder(
-                                    borderSide: const BorderSide(
-                                      color: Colors.deepOrange,
-                                    ),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 18),
                                 ),
                               ),
                             ),
@@ -562,20 +598,20 @@ class _SignupPageState extends State<SignupPage> {
                               child: TextField(
                                 controller: _confirmPasswordController,
                                 obscureText: !_confirmPasswordVisible,
-                                style: const TextStyle(color: Colors.white),
+                                style: TextStyle(color: textColor),
                                 decoration: InputDecoration(
                                   hintText: "Confirm Password",
-                                  hintStyle: const TextStyle(
-                                    color: Color.fromARGB(179, 201, 197, 197),
+                                  hintStyle: TextStyle(
+                                    color: hintColor,
                                   ),
-                                  prefixIconColor: Colors.deepOrange,
+                                  prefixIconColor: primaryColor,
                                   prefixIcon: const Icon(Icons.lock_outline),
                                   suffixIcon: IconButton(
                                     icon: Icon(
                                       _confirmPasswordVisible
                                           ? Icons.visibility
                                           : Icons.visibility_off,
-                                      color: Colors.grey,
+                                      color: hintColor,
                                     ),
                                     onPressed: () {
                                       setState(() {
@@ -583,19 +619,17 @@ class _SignupPageState extends State<SignupPage> {
                                       });
                                     },
                                   ),
-                                  border: UnderlineInputBorder(
+                                  filled: true,
+                                  fillColor: inputBg,
+                                  enabledBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(color: inputBorder),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
-                                  enabledBorder: UnderlineInputBorder(
-                                    borderSide: const BorderSide(color: Colors.grey),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(color: primaryColor, width: 2),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
-                                  focusedBorder: UnderlineInputBorder(
-                                    borderSide: const BorderSide(
-                                      color: Colors.deepOrange,
-                                    ),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 18),
                                 ),
                               ),
                             ),
@@ -606,19 +640,19 @@ class _SignupPageState extends State<SignupPage> {
                             ElevatedButton(
                               onPressed: _isLoading ? null : _signUp,
                               style: ElevatedButton.styleFrom(
-                                foregroundColor: AppColors.textDark,
-                                backgroundColor: Colors.orange,
+                                foregroundColor: isDark ? AppColors.ink900 : AppColors.ivory50,
+                                backgroundColor: primaryColor,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                               ),
                               child: _isLoading
-                                  ? const SizedBox(
+                                  ? SizedBox(
                                       height: 20,
                                       width: 20,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        color: Colors.white,
+                                        color: isDark ? AppColors.ink900 : AppColors.ivory50,
                                       ),
                                     )
                                   : const Text(

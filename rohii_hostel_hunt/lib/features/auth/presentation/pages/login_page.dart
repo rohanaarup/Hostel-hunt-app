@@ -1,18 +1,22 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:go_router/go_router.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/utils/call.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rohii_hostel_hunt/features/profile/presentation/providers/user_provider.dart';
 
-class LoginPage extends StatefulWidget {
+class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends ConsumerState<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final ApiService _api = ApiService();
@@ -51,7 +55,11 @@ class _LoginPageState extends State<LoginPage> {
     try {
       final response = await _api.post(
         '/auth/login/',
-        {'email': email, 'password': password},
+        {
+          'identifier': email,
+          'identifier_type': 'email',
+          'password': password,
+        },
       );
 
       if (!response.success) {
@@ -70,17 +78,21 @@ class _LoginPageState extends State<LoginPage> {
           tokens['access'] as String,
           tokens['refresh'] as String,
         );
+        debugPrint('[LOGIN] Tokens saved — access: ${tokens['access']?.toString().substring(0, 20)}...');
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_id', user?['id']?.toString() ?? '');
+        await prefs.setString('user_id', user?['owner_id']?.toString() ?? user?['id']?.toString() ?? '');
         await prefs.setString('user_email', user?['email'] as String? ?? '');
+        
+        // Refresh the profile data now that the user is logged in
+        ref.read(userProvider.notifier).refresh();
       }
 
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Login successful!'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 1),
+        SnackBar(
+          content: const Text('Login successful!'),
+          backgroundColor: AppColors.emerald500,
+          duration: const Duration(seconds: 1),
         ),
       );
       await Future.delayed(const Duration(milliseconds: 500));
@@ -95,39 +107,52 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = isDark ? AppColors.auburn300 : AppColors.auburn500;
+    final scaffoldBg = isDark ? AppColors.ink900 : AppColors.ivory50;
+    final cardBg = isDark ? AppColors.ivory900 : AppColors.ivory50;
+    final cardBorder = isDark ? AppColors.ivory700 : AppColors.ivory300;
+    final inputBg = isDark ? AppColors.ink900 : AppColors.ivory100;
+    final inputBorder = isDark ? AppColors.ivory700 : AppColors.ivory300;
+    final textColor = isDark ? AppColors.ivory50 : AppColors.ink900;
+    final hintColor = AppColors.ivory500;
+    final headerColor = isDark ? AppColors.ember500 : AppColors.ember700;
+
     return Scaffold(
-      backgroundColor: const Color.fromARGB(209, 142, 142, 142),
+      backgroundColor: scaffoldBg,
       body: SafeArea(
         child: Stack(
           children: [
-            Column(
-              children: [
-                Container(
-                  height: 160,
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: AppColors.secondary,
-                    borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(40),
-                      bottomRight: Radius.circular(40),
-                    ),
+            // Layer 1: Decorative background blobs
+            Positioned(
+              top: -60,
+              left: -60,
+              child: ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 70, sigmaY: 70),
+                child: Container(
+                  width: 300,
+                  height: 300,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.ember300.withValues(alpha: 0.12) : AppColors.ember500.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
                   ),
                 ),
-
-                const Spacer(),
-
-                Container(
-                  height: 120,
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: AppColors.secondary,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(40),
-                      topRight: Radius.circular(40),
-                    ),
+              ),
+            ),
+            Positioned(
+              bottom: -100,
+              right: -80,
+              child: ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
+                child: Container(
+                  width: 350,
+                  height: 350,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.ember300.withValues(alpha: 0.12) : AppColors.ember500.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
                   ),
                 ),
-              ],
+              ),
             ),
             Positioned(
               top: 120,
@@ -137,9 +162,17 @@ class _LoginPageState extends State<LoginPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Container(
                   height: 480,
-                  decoration: const BoxDecoration(
-                    color: Color.fromARGB(255, 67, 67, 67),
-                    borderRadius: BorderRadius.all(Radius.circular(40)),
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(40),
+                    border: Border.all(color: cardBorder, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.ink900.withValues(alpha: 0.08),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
 
                   child: SingleChildScrollView(
@@ -153,8 +186,13 @@ class _LoginPageState extends State<LoginPage> {
                           ),
 
                           Text(
-                            "L  O  G  I  N",
-                            style: AppCall.headlineTextFieldStyle(),
+                            "L O G I N",
+                            style: AppCall.headlineTextFieldStyle().copyWith(
+                              color: headerColor,
+                              fontStyle: FontStyle.italic,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 2.0,
+                            ),
                           ),
                           const SizedBox(height: 40),
 
@@ -163,18 +201,18 @@ class _LoginPageState extends State<LoginPage> {
                               padding: const EdgeInsets.all(12),
                               margin: const EdgeInsets.only(bottom: 20),
                               decoration: BoxDecoration(
-                                color: Colors.red.shade900.withOpacity(0.3),
+                                color: AppColors.error.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.red),
+                                border: Border.all(color: AppColors.error),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.error_outline, color: Colors.red),
+                                  Icon(Icons.error_outline, color: AppColors.error),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
                                       _errorMessage,
-                                      style: const TextStyle(color: Colors.red),
+                                      style: TextStyle(color: AppColors.error),
                                     ),
                                   ),
                                 ],
@@ -184,24 +222,25 @@ class _LoginPageState extends State<LoginPage> {
                           TextField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
-                            style: const TextStyle(color: Color.fromARGB(255, 26, 26, 26)),
+                            style: TextStyle(color: textColor),
                             decoration: InputDecoration(
                               hintText: "Email",
-                              hintStyle: const TextStyle(
-                                color: Color.fromARGB(179, 25, 24, 24),
+                              hintStyle: TextStyle(
+                                color: hintColor,
                               ),
-                              prefixIconColor: Colors.deepOrange,
+                              prefixIconColor: primaryColor,
                               prefixIcon: const Icon(Icons.email),
-                              enabledBorder: UnderlineInputBorder(
-                                borderSide: const BorderSide(color: Colors.grey),
+                              filled: true,
+                              fillColor: inputBg,
+                              enabledBorder: OutlineInputBorder(
+                                borderSide: BorderSide(color: inputBorder),
                                 borderRadius: BorderRadius.circular(20),
                               ),
-                              focusedBorder: UnderlineInputBorder(
-                                borderSide: const BorderSide(
-                                  color: Colors.deepOrange,
-                                ),
+                              focusedBorder: OutlineInputBorder(
+                                borderSide: BorderSide(color: primaryColor, width: 2),
                                 borderRadius: BorderRadius.circular(20),
                               ),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 18),
                             ),
                           ),
                           const SizedBox(height: 20),
@@ -209,20 +248,20 @@ class _LoginPageState extends State<LoginPage> {
                           TextField(
                             controller: _passwordController,
                             obscureText: !_passwordVisible,
-                            style: const TextStyle(color: Color.fromARGB(255, 39, 38, 38)),
+                            style: TextStyle(color: textColor),
                             decoration: InputDecoration(
                               hintText: "Password",
-                              hintStyle: const TextStyle(
-                                color: Color.fromARGB(179, 29, 28, 28),
+                              hintStyle: TextStyle(
+                                color: hintColor,
                               ),
-                              prefixIconColor: Colors.deepOrange,
+                              prefixIconColor: primaryColor,
                               prefixIcon: const Icon(Icons.lock),
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _passwordVisible
                                       ? Icons.visibility
                                       : Icons.visibility_off,
-                                  color: const Color.fromARGB(255, 50, 49, 49),
+                                  color: hintColor,
                                 ),
                                 onPressed: () {
                                   setState(() {
@@ -230,16 +269,17 @@ class _LoginPageState extends State<LoginPage> {
                                   });
                                 },
                               ),
-                              enabledBorder: UnderlineInputBorder(
-                                borderSide: const BorderSide(color: Color.fromARGB(255, 37, 36, 36)),
+                              filled: true,
+                              fillColor: inputBg,
+                              enabledBorder: OutlineInputBorder(
+                                borderSide: BorderSide(color: inputBorder),
                                 borderRadius: BorderRadius.circular(20),
                               ),
-                              focusedBorder: UnderlineInputBorder(
-                                borderSide: const BorderSide(
-                                  color: Colors.deepOrange,
-                                ),
+                              focusedBorder: OutlineInputBorder(
+                                borderSide: BorderSide(color: primaryColor, width: 2),
                                 borderRadius: BorderRadius.circular(20),
                               ),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 18),
                             ),
                           ),
 
@@ -248,23 +288,25 @@ class _LoginPageState extends State<LoginPage> {
                           ElevatedButton(
                             onPressed: _isLoading ? null : _login,
                             style: ElevatedButton.styleFrom(
-                              foregroundColor: AppColors.textDark,
-                              backgroundColor: Colors.orange,
+                              foregroundColor: isDark ? AppColors.ink900 : AppColors.ivory50,
+                              backgroundColor: primaryColor,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 40,
-                                vertical: 12,
+                                vertical: 14,
                               ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(20),
                               ),
+                              shadowColor: AppColors.auburn700.withValues(alpha: 0.2),
+                              elevation: 8,
                             ),
                             child: _isLoading
-                                ? const SizedBox(
+                                ? SizedBox(
                                     height: 20,
                                     width: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: Color.fromARGB(255, 51, 50, 50),
+                                      color: isDark ? AppColors.ink900 : AppColors.ivory50,
                                     ),
                                   )
                                 : const Text(
@@ -278,18 +320,18 @@ class _LoginPageState extends State<LoginPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text(
+                              Text(
                                 "don't have an account??",
-                                style: TextStyle(color: Colors.white70),
+                                style: TextStyle(color: isDark ? AppColors.ivory300 : AppColors.ink700),
                               ),
                               GestureDetector(
                                 onTap: () {
                                   context.push('/signup');
                                 },
-                                child: const Text(
+                                child: Text(
                                   " Sign Up",
                                   style: TextStyle(
-                                    color: Color.fromARGB(255, 210, 147, 64),
+                                    color: primaryColor,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),

@@ -1,22 +1,17 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:rohii_hostel_hunt/core/theme/theme_provider.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
-
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/features/profile/presentation/providers/user_provider.dart';
 
 // ─── Centralized route names ──────────────────────────────────────────────────
 class _R {
-  static const edit = '/profile/edit';
-  static const saved = '/profile/saved';
-  static const recent = '/profile/recent';
-  static const bookings = '/profile/bookings';
-  static const prefs = '/profile/preferences';
-  static const payments = '/profile/payments';
-  static const support = '/profile/support';
   static const settings = '/profile/settings';
+  static const search = '/search';
 }
 
 // ─── Main Profile page ────────────────────────────────────────────────────────
@@ -28,13 +23,12 @@ class Profile extends ConsumerWidget {
     final isDark = ref.watch(themeProvider);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
+      value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: AppColors.background(isDark),
-        extendBodyBehindAppBar: true,
+        backgroundColor: isDark ? AppColors.ink900 : AppColors.ivory50,
         body: _ProfileContent(isDark: isDark),
       ),
     );
@@ -48,42 +42,31 @@ class _ProfileContent extends ConsumerStatefulWidget {
   ConsumerState<_ProfileContent> createState() => _ProfileState();
 }
 
-class _ProfileState extends ConsumerState<_ProfileContent> with SingleTickerProviderStateMixin {
-  late final AnimationController _ac;
-  late final Animation<double> _fade;
-  late final Animation<Offset> _slide;
+class _ProfileState extends ConsumerState<_ProfileContent> {
+  bool _isUploadingPhoto = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _ac = AnimationController(vsync: this, duration: const Duration(milliseconds: 550));
-    _fade = CurvedAnimation(parent: _ac, curve: Curves.easeOut);
-    _slide = Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _ac, curve: Curves.easeOutCubic));
-    _ac.forward();
-  }
-
-  @override
-  void dispose() { _ac.dispose(); super.dispose(); }
-
-  void _go(String route) {
-    HapticFeedback.lightImpact();
-    context.push(route);
-  }
-
-  void _logout(bool isDark) {
+  // ── Logout ──────────────────────────────────────────────────────────────────
+  void _logout() {
+    final isDark = widget.isDark;
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.cardBg(isDark),
+        backgroundColor: isDark ? AppColors.ivory900 : AppColors.ivory50,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text('Log Out', style: TextStyle(color: AppColors.textPrimary(isDark), fontWeight: FontWeight.w700)),
+        title: Text('Log Out',
+            style: TextStyle(
+                color: isDark ? AppColors.ivory50 : AppColors.ink900,
+                fontWeight: FontWeight.w700)),
         content: Text('Are you sure you want to log out of your account?',
-            style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 14)),
+            style: TextStyle(
+                color: isDark ? AppColors.ivory300 : AppColors.ink700,
+                fontSize: 14)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary(isDark)),
+            style: TextButton.styleFrom(
+                foregroundColor:
+                    isDark ? AppColors.ivory300 : AppColors.ink700),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
@@ -93,591 +76,1019 @@ class _ProfileState extends ConsumerState<_ProfileContent> with SingleTickerProv
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
-              foregroundColor: AppColors.white,
+              foregroundColor: AppColors.ivory50,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
-            child: const Text('Log Out', style: TextStyle(fontWeight: FontWeight.w600)),
+            child: const Text('Log Out',
+                style: TextStyle(fontWeight: FontWeight.w600)),
           ),
         ],
       ),
     );
   }
 
+  // ── Photo upload ─────────────────────────────────────────────────────────────
+  Future<void> _pickAndUploadPhoto() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 800,
+    );
+    if (picked == null) return;
+
+    setState(() => _isUploadingPhoto = true);
+    final notifier = ref.read(userProvider.notifier);
+    final mimeType = picked.mimeType ?? 'image/jpeg';
+    final bytes = await picked.readAsBytes();
+    final error = await notifier.uploadPhoto(bytes, picked.name, mimeType);
+    if (mounted) {
+      setState(() => _isUploadingPhoto = false);
+      if (error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Upload failed: $error'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Profile photo updated!'),
+            backgroundColor: AppColors.emerald500,
+          ),
+        );
+      }
+    }
+  }
+
+  // ── Edit profile bottom sheet ────────────────────────────────────────────────
+  void _showEditProfileSheet(UserProfile? user) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EditProfileSheet(
+        isDark: widget.isDark,
+        user: user,
+        onSave: (fields) async {
+          final notifier = ref.read(userProvider.notifier);
+          final error = await notifier.updateProfile(fields);
+          if (mounted) {
+            if (error != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                    content: Text('Update failed: $error'),
+                    backgroundColor: AppColors.error),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                    content: const Text('Profile updated!'),
+                    backgroundColor: AppColors.emerald500),
+              );
+            }
+          }
+        },
+      ),
+    );
+  }
+
+  // ── Build ────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
     final userAsync = ref.watch(userProvider);
     final user = userAsync.valueOrNull;
 
-    return FadeTransition(
-      opacity: _fade,
-      child: SlideTransition(
-        position: _slide,
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(child: _Header(isDark: isDark, onEdit: () => _go(_R.edit), user: user)),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  const SizedBox(height: 22),
-                  _Label('My Activity', isDark),
-                  const SizedBox(height: 10),
-                  _Card(isDark: isDark, tiles: [
-                    _Tile(icon: Icons.favorite_rounded, bg: const Color(0xFFFCE4EC), fg: const Color(0xFFE91E63), title: 'Saved Hostels', sub: '3 hostels saved', route: _R.saved),
-                    _Tile(icon: Icons.history_rounded, bg: const Color(0xFFEDE7F6), fg: const Color(0xFF7C4DFF), title: 'Recently Viewed', sub: '12 hostels viewed', route: _R.recent),
-                    _Tile(icon: Icons.assignment_rounded, bg: AppColors.orangeSoft, fg: AppColors.orange, title: 'Booking Requests', sub: '1 pending request', route: _R.bookings, isLast: true),
-                  ]),
-                  const SizedBox(height: 22),
-                  _Label('Preferences & Payments', isDark),
-                  const SizedBox(height: 10),
-                  _Card(isDark: isDark, tiles: [
-                    _Tile(icon: Icons.tune_rounded, bg: const Color(0xFFE0F2F1), fg: const Color(0xFF00897B), title: 'Preferences', sub: 'AC, Boys, Near metro...', route: _R.prefs),
-                    _Tile(icon: Icons.account_balance_wallet_rounded, bg: const Color(0xFFE3F2FD), fg: const Color(0xFF1565C0), title: 'Payments & Rentals', sub: 'Manage transactions', route: _R.payments, isLast: true),
-                  ]),
-                  const SizedBox(height: 22),
-                  _Label('Support & App', isDark),
-                  const SizedBox(height: 10),
-                  _Card(isDark: isDark, tiles: [
-                    _Tile(icon: Icons.help_outline_rounded, bg: const Color(0xFFE1F5FE), fg: const Color(0xFF0288D1), title: 'Support & Help', sub: 'FAQs, contact us', route: _R.support),
-                    _Tile(icon: Icons.settings_rounded, bg: AppColors.chip, fg: AppColors.textMuted, title: 'Settings', sub: 'Theme, notifications & more', route: _R.settings, isLast: true),
-                  ]),
-                  const SizedBox(height: 22),
-                  _LogoutRow(isDark: isDark, onTap: () => _logout(isDark)),
-                  const SizedBox(height: 16),
-                  Center(child: Text('Hostel Hunt v1.0.0 · Aarupa Matrix',
-                    style: TextStyle(color: AppColors.textTertiary(isDark), fontSize: 11, letterSpacing: 0.3))),
-                ]),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+    final bannerHeight = MediaQuery.of(context).size.height * 0.24;
+    const avatarSize = 100.0;
 
-// ─── Custom Header (replaces AppBar) ─────────────────────────────────────────
-class _Header extends StatelessWidget {
-  final bool isDark;
-  final VoidCallback onEdit;
-  final UserProfile? user;
-  const _Header({required this.isDark, required this.onEdit, this.user});
+    Color getStatusColor(String status) {
+      status = status.toLowerCase();
+      if (status == 'confirmed') return AppColors.emerald300;
+      if (status == 'pending') return AppColors.warning;
+      return AppColors.ivory300;
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    final top = MediaQuery.of(context).padding.top;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isDark
-              ? [AppColors.cardDark, AppColors.surfaceDark2]
-              : [AppColors.headerStart, AppColors.headerEnd],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(32),
-          bottomRight: Radius.circular(32),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? AppColors.shadow.withValues(alpha: 0.25)
-                : AppColors.orange.withValues(alpha: 0.1),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(height: top + 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                _PillButton(
-                  isDark: isDark,
-                  onTap: () => Navigator.maybePop(context),
-                  child: Icon(Icons.arrow_back_ios_new_rounded, size: 17,
-                      color: AppColors.textPrimary(isDark)),
-                ),
-                const Spacer(),
-                Text('Profile',
-                    style: TextStyle(
-                      color: AppColors.textPrimary(isDark),
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.3,
-                    )),
-                const Spacer(),
-                _PillButton(
-                  isDark: isDark,
-                  onTap: onEdit,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.edit_outlined, size: 14, color: AppColors.orange),
-                      const SizedBox(width: 5),
-                      Text('Edit',
-                          style: TextStyle(
-                              color: AppColors.orange,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
-            child: _HeroCard(isDark: isDark, onEdit: onEdit, user: user),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Small floating pill button used in header
-class _PillButton extends StatelessWidget {
-  final bool isDark;
-  final VoidCallback onTap;
-  final Widget child;
-  const _PillButton({required this.isDark, required this.onTap, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.chipDark : AppColors.white.withValues(alpha: 0.75),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: isDark ? AppColors.white.withValues(alpha: 0.08) : AppColors.border,
-            width: 0.8,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.shadow.withValues(alpha: 0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: child,
-      ),
-    );
-  }
-}
-
-// ─── Profile Hero Card ────────────────────────────────────────────────────────
-// Left ~40% = tall image box, Right ~60% = user info
-class _HeroCard extends StatelessWidget {
-  final bool isDark;
-  final VoidCallback onEdit;
-  final UserProfile? user;
-  const _HeroCard({required this.isDark, required this.onEdit, this.user});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardBg(isDark),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: isDark ? AppColors.chipDark : AppColors.border,
-          width: 0.8,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow.withValues(alpha: isDark ? 0.22 : 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
-            spreadRadius: -2,
-          ),
-        ],
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Left: image section ────────────────────────────────────────
-            Expanded(
-              flex: 4,
-              child: GestureDetector(
-                onTap: onEdit,
-                child: ClipRRect(
+          // ── Layer 1 & 2: Banner + Avatar ──────────────────────────────────
+          Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.topCenter,
+            children: [
+              // Spacer to give Stack enough height for hit-testing the overlapping avatar
+              SizedBox(
+                height: bannerHeight + (avatarSize / 2),
+                width: double.infinity,
+              ),
+              
+              // Banner
+              Container(
+                height: bannerHeight,
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.auburn300 : AppColors.auburn500,
                   borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    bottomLeft: Radius.circular(24),
+                    bottomLeft: Radius.circular(32),
+                    bottomRight: Radius.circular(32),
                   ),
-                  child: Container(
-                    constraints: const BoxConstraints(minHeight: 160),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [AppColors.orange, AppColors.orangeDark],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    child: Stack(
-                      fit: StackFit.expand,
+                ),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Subtle top highlight
-                        Positioned(
-                          top: 0, left: 0, right: 0,
-                          child: Container(
-                            height: 60,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  AppColors.white.withValues(alpha: 0.1),
-                                  Colors.transparent,
-                                ],
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                              ),
-                            ),
-                          ),
+                        _FloatingCircleBtn(
+                          icon: Icons.arrow_back_ios_new_rounded,
+                          onTap: () {
+                            if (context.canPop()) {
+                              context.pop();
+                            } else {
+                              context.go('/home');
+                            }
+                          },
                         ),
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: AppColors.white.withValues(alpha: 0.18),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                    color: AppColors.white.withValues(alpha: 0.3),
-                                    width: 1.5),
-                              ),
-                              child: const Icon(Icons.person_rounded,
-                                  color: AppColors.white, size: 38),
-                            ),
-                            const SizedBox(height: 10),
-                            Text('Change\nPhoto',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: AppColors.white.withValues(alpha: 0.65),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                  height: 1.4,
-                                )),
-                          ],
+                        _FloatingCircleBtn(
+                          icon: Icons.settings_rounded,
+                          onTap: () => context.push(_R.settings),
                         ),
                       ],
                     ),
                   ),
                 ),
               ),
-            ),
-            // ── Right: user info ───────────────────────────────────────────
-            Expanded(
-              flex: 6,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 14, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
+
+              // Avatar with overlaid action icons
+              Positioned(
+                bottom: 0,
+                child: Stack(
                   children: [
-                    Text(
-                      user?.name ?? 'Loading...',
-                      style: TextStyle(
-                        color: AppColors.textPrimary(isDark),
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.4,
+                    // Avatar circle
+                    Container(
+                      width: avatarSize,
+                      height: avatarSize,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isDark ? AppColors.ivory700 : AppColors.ivory100,
+                        border: Border.all(
+                          color:
+                              isDark ? AppColors.ink900 : AppColors.ivory50,
+                          width: 4,
+                        ),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      child: ClipOval(
+                        child: _isUploadingPhoto
+                            ? Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.auburn500,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : user?.profilePhotoUrl != null
+                                ? Image.network(
+                                    user!.profilePhotoUrl!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Icon(
+                                      Icons.person_rounded,
+                                      size: 48,
+                                      color: isDark
+                                          ? AppColors.ivory300
+                                          : AppColors.ivory500,
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.person_rounded,
+                                    size: 48,
+                                    color: isDark
+                                        ? AppColors.ivory300
+                                        : AppColors.ivory500,
+                                  ),
+                      ),
                     ),
-                    const SizedBox(height: 7),
-                    if (user?.isVerified ?? false)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppColors.success.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                              color: AppColors.success.withValues(alpha: 0.3)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.verified_rounded,
-                                size: 11, color: AppColors.success),
-                            const SizedBox(width: 4),
-                            Text('Verified',
-                                style: TextStyle(
-                                    color: AppColors.success,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600)),
-                          ],
+
+                    // Pen icon (bottom-left) — opens edit form
+                    Positioned(
+                      bottom: 2,
+                      left: 2,
+                      child: GestureDetector(
+                        onTap: () => _showEditProfileSheet(user),
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color:
+                                isDark ? AppColors.ivory900 : AppColors.ink900,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: isDark
+                                    ? AppColors.ink900
+                                    : AppColors.ivory50,
+                                width: 2),
+                          ),
+                          child: Icon(
+                            Icons.edit_rounded,
+                            size: 14,
+                            color: AppColors.ivory50,
+                          ),
                         ),
                       ),
-                    const SizedBox(height: 12),
-                    _IR(Icons.email_outlined, user?.email ?? '', isDark),
-                    const SizedBox(height: 5),
-                    _IR(Icons.phone_outlined, user?.phone ?? '', isDark),
-                    const SizedBox(height: 5),
-                    _IR(Icons.calendar_today_outlined, user?.joinedAt ?? '', isDark),
+                    ),
+
+                    // + icon (bottom-right) — opens image picker
+                    Positioned(
+                      bottom: 2,
+                      right: 2,
+                      child: GestureDetector(
+                        onTap: _pickAndUploadPhoto,
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: AppColors.auburn500,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: isDark
+                                    ? AppColors.ink900
+                                    : AppColors.ivory50,
+                                width: 2),
+                          ),
+                          child: Icon(
+                            Icons.add_rounded,
+                            size: 16,
+                            color: AppColors.ivory50,
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
+            ],
+          ),
+
+          // Gap for text
+          const SizedBox(height: 12),
+
+          Text(
+            userAsync.hasError 
+                ? 'Error loading profile' 
+                : (user?.name ?? 'Loading...'),
+            style: TextStyle(
+              color: isDark ? AppColors.ivory50 : AppColors.ink900,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            userAsync.hasError 
+                ? userAsync.error.toString() 
+                : (user?.email ?? ''),
+            style: TextStyle(
+              color: isDark ? AppColors.ivory300 : AppColors.ink700,
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          if (user?.gender != null || user?.dateOfBirth != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              [
+                if (user?.gender != null)
+                  _genderLabel(user!.gender!),
+                if (user?.dateOfBirth != null)
+                  _formatDob(user!.dateOfBirth!),
+              ].join('  ·  '),
+              style: TextStyle(
+                color: isDark ? AppColors.ivory500 : AppColors.ink700,
+                fontSize: 13,
+              ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
+          const SizedBox(height: 30),
 
-// Mini info row inside hero card
-class _IR extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  final bool isDark;
-  const _IR(this.icon, this.text, this.isDark);
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 13, color: AppColors.orange.withValues(alpha: 0.75)),
-        const SizedBox(width: 5),
-        Flexible(
-          child: Text(text,
-              style: TextStyle(
-                  color: AppColors.textSecondary(isDark),
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w400),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis),
-        ),
-      ],
-    );
-  }
-}
+          // ── Layer 3: Stat card grid ───────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
+              childAspectRatio: 1.1,
+              children: [
+                _StatCard(
+                  isDark: isDark,
+                  icon: Icons.bookmark_added_rounded,
+                  iconColor: AppColors.auburn500,
+                  value: user?.bookingsCount.toString() ?? '0',
+                  label: 'Bookings Made',
+                ),
+                _StatCard(
+                  isDark: isDark,
+                  icon: Icons.favorite_rounded,
+                  iconColor: AppColors.auburn500,
+                  value: user?.savedHostelsCount.toString() ?? '0',
+                  label: 'Saved Hostels',
+                ),
+                _StatCard(
+                  isDark: isDark,
+                  icon: Icons.rate_review_rounded,
+                  iconColor: AppColors.emerald500,
+                  value: '0',
+                  label: 'Reviews',
+                ),
+                _StatCard(
+                  isDark: isDark,
+                  icon: Icons.verified_user_rounded,
+                  iconColor: AppColors.emerald500,
+                  value: '${user?.profileCompletePercent ?? 0}%',
+                  label: 'Profile Complete',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
 
-// ─── Section label ────────────────────────────────────────────────────────────
-class _Label extends StatelessWidget {
-  final String text;
-  final bool isDark;
-  const _Label(this.text, this.isDark);
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: Text(
-        text.toUpperCase(),
-        style: TextStyle(
-          color: AppColors.textTertiary(isDark),
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.1,
-        ),
-      ),
-    );
-  }
-}
+          // ── Layer 4: Recent Booking Activity ─────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Recent Booking Activity',
+                  style: TextStyle(
+                    color: isDark ? AppColors.ivory50 : AppColors.ink900,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
 
-// ─── Tile data model ──────────────────────────────────────────────────────────
-class _Tile {
-  final IconData icon;
-  final Color bg;
-  final Color fg;
-  final String title;
-  final String sub;
-  final String route;
-  final bool isLast;
-  const _Tile({
-    required this.icon,
-    required this.bg,
-    required this.fg,
-    required this.title,
-    required this.sub,
-    required this.route,
-    this.isLast = false,
-  });
-}
+                if (user == null || user.recentBookings.isEmpty)
+                  _EmptyBookingsState(isDark: isDark)
+                else
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: user.recentBookings.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final booking =
+                          user.recentBookings[index] as Map<String, dynamic>;
+                      final hostelName =
+                          booking['hostel_name'] as String? ?? 'Hostel Booking';
+                      final bookingDate =
+                          (booking['created_at'] as String? ?? 'Recent')
+                              .split('T')[0];
+                      final status =
+                          booking['status'] as String? ?? 'pending';
 
-// ─── Section card ─────────────────────────────────────────────────────────────
-class _Card extends StatelessWidget {
-  final bool isDark;
-  final List<_Tile> tiles;
-  const _Card({required this.isDark, required this.tiles});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardBg(isDark),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-            color: isDark ? AppColors.chipDark : AppColors.border, width: 0.8),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow.withValues(alpha: isDark ? 0.18 : 0.05),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-            spreadRadius: -2,
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppColors.ivory900
+                              : AppColors.ivory100,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isDark
+                                ? AppColors.ivory700
+                                : AppColors.ivory300,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? AppColors.ivory700
+                                    : AppColors.ivory300,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.hotel_rounded,
+                                color: isDark
+                                    ? AppColors.ivory50
+                                    : AppColors.ink900,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    hostelName,
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? AppColors.ivory50
+                                          : AppColors.ink900,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Booked on $bookingDate',
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? AppColors.ivory300
+                                          : AppColors.ink700,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: getStatusColor(status)
+                                    .withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                    color: getStatusColor(status)
+                                        .withValues(alpha: 0.5)),
+                              ),
+                              child: Text(
+                                status.toUpperCase(),
+                                style: TextStyle(
+                                  color: getStatusColor(status),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+
+                const SizedBox(height: 32),
+
+                // ── Logout Button ─────────────────────────────────────────
+                GestureDetector(
+                  onTap: _logout,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: AppColors.error
+                          .withValues(alpha: isDark ? 0.15 : 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                          color: AppColors.error.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.logout_rounded,
+                            color: AppColors.error, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Log Out',
+                          style: TextStyle(
+                            color: AppColors.error,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 40),
+              ],
+            ),
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: tiles.map((t) => _TileRow(tile: t, isDark: isDark)).toList(),
-      ),
     );
+  }
+
+  static String _genderLabel(String g) {
+    const map = {
+      'male': 'Male',
+      'female': 'Female',
+      'other': 'Other',
+      'prefer_not_to_say': 'Prefer not to say',
+    };
+    return map[g] ?? g;
+  }
+
+  static String _formatDob(String iso) {
+    try {
+      final d = DateTime.parse(iso);
+      return '${d.day} ${_month(d.month)} ${d.year}';
+    } catch (_) {
+      return iso;
+    }
+  }
+
+  static String _month(int m) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return months[m - 1];
   }
 }
 
-// ─── Individual tile row with press animation ─────────────────────────────────
-class _TileRow extends StatefulWidget {
-  final _Tile tile;
+// ─── Edit Profile Bottom Sheet ────────────────────────────────────────────────
+class _EditProfileSheet extends StatefulWidget {
   final bool isDark;
-  const _TileRow({required this.tile, required this.isDark});
+  final UserProfile? user;
+  final Future<void> Function(Map<String, dynamic>) onSave;
+
+  const _EditProfileSheet({
+    required this.isDark,
+    required this.user,
+    required this.onSave,
+  });
+
   @override
-  State<_TileRow> createState() => _TileRowState();
+  State<_EditProfileSheet> createState() => _EditProfileSheetState();
 }
 
-class _TileRowState extends State<_TileRow> {
-  bool _down = false;
+class _EditProfileSheetState extends State<_EditProfileSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _mobileCtrl;
+  late final TextEditingController _emailCtrl;
+  late final TextEditingController _dobCtrl;
+  String? _selectedGender;
+  DateTime? _selectedDob;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final u = widget.user;
+    _nameCtrl = TextEditingController(text: u?.name ?? '');
+    _mobileCtrl = TextEditingController(text: u?.phone ?? '');
+    _emailCtrl = TextEditingController(text: u?.email ?? '');
+    _selectedGender = u?.gender;
+    if (u?.dateOfBirth != null) {
+      try {
+        _selectedDob = DateTime.parse(u!.dateOfBirth!);
+        _dobCtrl = TextEditingController(
+            text: _formatDate(_selectedDob!));
+      } catch (_) {
+        _dobCtrl = TextEditingController();
+      }
+    } else {
+      _dobCtrl = TextEditingController();
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _mobileCtrl.dispose();
+    _emailCtrl.dispose();
+    _dobCtrl.dispose();
+    super.dispose();
+  }
+
+  String _formatDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')} / ${d.month.toString().padLeft(2, '0')} / ${d.year}';
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDob ?? DateTime(now.year - 20, 1, 1),
+      firstDate: DateTime(1940),
+      lastDate: DateTime(now.year - 10),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: ColorScheme.dark(
+            primary: AppColors.auburn500,
+            onPrimary: AppColors.ivory50,
+            surface: widget.isDark ? AppColors.ivory900 : AppColors.ivory50,
+            onSurface: widget.isDark ? AppColors.ivory50 : AppColors.ink900,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDob = picked;
+        _dobCtrl.text = _formatDate(picked);
+      });
+    }
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isSaving = true);
+
+    final fields = <String, dynamic>{};
+    final name = _nameCtrl.text.trim();
+    final mobile = _mobileCtrl.text.trim();
+    final email = _emailCtrl.text.trim();
+
+    if (name.isNotEmpty && name != widget.user?.name) {
+      fields['display_name'] = name;
+    }
+    if (mobile.isNotEmpty && mobile != widget.user?.phone) {
+      fields['phone_number'] = mobile;
+    }
+    if (email.isNotEmpty && email != widget.user?.email) {
+      fields['email'] = email;
+    }
+    if (_selectedGender != null && _selectedGender != widget.user?.gender) {
+      fields['gender'] = _selectedGender;
+    }
+    if (_selectedDob != null) {
+      final isoDate =
+          '${_selectedDob!.year}-${_selectedDob!.month.toString().padLeft(2, '0')}-${_selectedDob!.day.toString().padLeft(2, '0')}';
+      if (isoDate != widget.user?.dateOfBirth) {
+        fields['date_of_birth'] = isoDate;
+      }
+    }
+
+    if (fields.isEmpty) {
+      if (mounted) Navigator.pop(context);
+      return;
+    }
+
+    await widget.onSave(fields);
+    if (mounted) {
+      setState(() => _isSaving = false);
+      Navigator.pop(context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final t = widget.tile;
     final isDark = widget.isDark;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GestureDetector(
-          onTapDown: (_) => setState(() => _down = true),
-          onTapUp: (_) {
-            setState(() => _down = false);
-            HapticFeedback.lightImpact();
-            context.push(t.route);
-          },
-          onTapCancel: () => setState(() => _down = false),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 100),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: _down
-                  ? AppColors.orange.withValues(alpha: 0.05)
-                  : Colors.transparent,
-              borderRadius: t.isLast
-                  ? const BorderRadius.vertical(bottom: Radius.circular(20))
-                  : BorderRadius.zero,
+    final bg = isDark ? AppColors.ivory900 : AppColors.ivory50;
+    final textColor = isDark ? AppColors.ivory50 : AppColors.ink900;
+    final hintColor = isDark ? AppColors.ivory500 : AppColors.ink700;
+    final borderColor = isDark ? AppColors.ivory700 : AppColors.ivory300;
+    final fillColor = isDark ? AppColors.ivory900 : AppColors.ivory100;
+
+    InputDecoration _field(String label, IconData icon) => InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: hintColor, fontSize: 13),
+          prefixIcon: Icon(icon, color: hintColor, size: 20),
+          filled: true,
+          fillColor: fillColor,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: borderColor),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: borderColor),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: AppColors.auburn500, width: 1.5),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        );
+
+    return Padding(
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(28)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
             ),
-            child: Row(
+          ],
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                      color: t.bg, borderRadius: BorderRadius.circular(12)),
-                  child: Icon(t.icon, color: t.fg, size: 20),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(t.title,
-                          style: TextStyle(
-                            color: AppColors.textPrimary(isDark),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.1,
-                          )),
-                      const SizedBox(height: 2),
-                      Text(t.sub,
-                          style: TextStyle(
-                              color: AppColors.textSecondary(isDark),
-                              fontSize: 12)),
-                    ],
+                // Handle bar
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: borderColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   ),
                 ),
-                Icon(Icons.arrow_forward_ios_rounded,
-                    size: 14, color: AppColors.textTertiary(isDark)),
+
+                Text(
+                  'Edit Profile',
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Name
+                TextFormField(
+                  controller: _nameCtrl,
+                  style: TextStyle(color: textColor),
+                  decoration: _field('Full Name', Icons.person_outline_rounded),
+                  textCapitalization: TextCapitalization.words,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+                ),
+                const SizedBox(height: 16),
+
+                // Mobile
+                TextFormField(
+                  controller: _mobileCtrl,
+                  style: TextStyle(color: textColor),
+                  decoration: _field('Mobile Number', Icons.phone_outlined),
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return null; // optional
+                    if (v.trim().length < 10) {
+                      return 'Enter a valid 10-digit number';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Email
+                TextFormField(
+                  controller: _emailCtrl,
+                  style: TextStyle(color: textColor),
+                  decoration: _field('Email Address', Icons.email_outlined),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return null; // optional
+                    final emailRe =
+                        RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+                    if (!emailRe.hasMatch(v.trim())) {
+                      return 'Enter a valid email address';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Date of Birth
+                TextFormField(
+                  controller: _dobCtrl,
+                  style: TextStyle(color: textColor),
+                  decoration: _field('Date of Birth', Icons.cake_outlined)
+                      .copyWith(
+                    suffixIcon: Icon(Icons.calendar_today_rounded,
+                        color: hintColor, size: 18),
+                  ),
+                  readOnly: true,
+                  onTap: _pickDate,
+                ),
+                const SizedBox(height: 16),
+
+                // Gender dropdown
+                DropdownButtonFormField<String>(
+                  value: _selectedGender,
+                  dropdownColor: bg,
+                  style: TextStyle(color: textColor, fontSize: 15),
+                  decoration: _field('Gender', Icons.wc_rounded),
+                  items: const [
+                    DropdownMenuItem(
+                        value: 'male', child: Text('Male')),
+                    DropdownMenuItem(
+                        value: 'female', child: Text('Female')),
+                    DropdownMenuItem(
+                        value: 'other', child: Text('Other')),
+                    DropdownMenuItem(
+                        value: 'prefer_not_to_say',
+                        child: Text('Prefer not to say')),
+                  ],
+                  onChanged: (v) => setState(() => _selectedGender = v),
+                ),
+                const SizedBox(height: 28),
+
+                // Save button
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: _isSaving ? null : _save,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.auburn500,
+                      foregroundColor: AppColors.ivory50,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: _isSaving
+                        ? SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              color: AppColors.ivory50,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            'Save Changes',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold),
+                          ),
+                  ),
+                ),
               ],
             ),
           ),
         ),
-        if (!t.isLast)
-          Padding(
-            padding: const EdgeInsets.only(left: 72),
-            child: Divider(
-              height: 1,
-              thickness: 0.6,
-              color: isDark ? AppColors.chipDark : AppColors.border,
-            ),
-          ),
-      ],
+      ),
     );
   }
 }
 
-// ─── Logout tile ──────────────────────────────────────────────────────────────
-class _LogoutRow extends StatefulWidget {
-  final bool isDark;
+// ─── Floating circle button ───────────────────────────────────────────────────
+class _FloatingCircleBtn extends StatelessWidget {
+  final IconData icon;
   final VoidCallback onTap;
-  const _LogoutRow({required this.isDark, required this.onTap});
-  @override
-  State<_LogoutRow> createState() => _LogoutRowState();
-}
 
-class _LogoutRowState extends State<_LogoutRow> {
-  bool _down = false;
+  const _FloatingCircleBtn({required this.icon, required this.onTap});
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) => setState(() => _down = true),
-      onTapUp: (_) { setState(() => _down = false); widget.onTap(); },
-      onTapCancel: () => setState(() => _down = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
-          color: _down
-              ? AppColors.error.withValues(alpha: 0.12)
-              : AppColors.error.withValues(alpha: widget.isDark ? 0.08 : 0.06),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.error.withValues(alpha: 0.2), width: 0.8),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(Icons.logout_rounded, color: AppColors.error, size: 20),
+          color: AppColors.ivory50,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text('Log Out',
-                  style: TextStyle(
-                      color: AppColors.error,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600)),
-            ),
-            Icon(Icons.arrow_forward_ios_rounded,
-                size: 14, color: AppColors.error.withValues(alpha: 0.5)),
           ],
         ),
+        child: Icon(icon, color: AppColors.ink900, size: 22),
+      ),
+    );
+  }
+}
+
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+class _StatCard extends StatelessWidget {
+  final bool isDark;
+  final IconData icon;
+  final Color iconColor;
+  final String value;
+  final String label;
+
+  const _StatCard({
+    required this.isDark,
+    required this.icon,
+    required this.iconColor,
+    required this.value,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.ivory900 : AppColors.ivory100,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark ? AppColors.ivory700 : AppColors.ivory300,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: iconColor, size: 24),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  color: isDark ? AppColors.ivory50 : AppColors.ink900,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isDark ? AppColors.ivory300 : AppColors.ink700,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Empty Bookings State ─────────────────────────────────────────────────────
+class _EmptyBookingsState extends StatelessWidget {
+  final bool isDark;
+  const _EmptyBookingsState({required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.ivory900 : AppColors.ivory100,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? AppColors.ivory700 : AppColors.ivory300,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.bed_rounded,
+              size: 48,
+              color: isDark ? AppColors.ivory500 : AppColors.ivory500),
+          const SizedBox(height: 16),
+          Text(
+            'No bookings yet',
+            style: TextStyle(
+              color: isDark ? AppColors.ivory300 : AppColors.ink700,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => context.go(_R.search),
+            style: ElevatedButton.styleFrom(
+              backgroundColor:
+                  isDark ? AppColors.auburn300 : AppColors.auburn500,
+              foregroundColor:
+                  isDark ? AppColors.ink900 : AppColors.ivory50,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Find a Hostel',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+        ],
       ),
     );
   }

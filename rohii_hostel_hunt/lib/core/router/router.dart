@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rohii_hostel_hunt/features/support/presentation/pages/about_stuff.dart';
 import 'package:rohii_hostel_hunt/features/hostel/presentation/pages/bed_selection_screen.dart';
+import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
 import 'package:rohii_hostel_hunt/features/profile/presentation/pages/profile.dart';
 import 'package:rohii_hostel_hunt/features/home/presentation/pages/homepage.dart';
 import 'package:rohii_hostel_hunt/shared/widgets/loading.dart';
@@ -25,7 +27,7 @@ import 'package:rohii_hostel_hunt/features/settings/presentation/pages/settings_
 /// Every route path is identical to the original GetX setup.
 
 final GoRouter appRouter = GoRouter(
-  initialLocation: '/login',
+  initialLocation: '/home',
   routes: [
     GoRoute(
       path: '/home',
@@ -93,7 +95,13 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/bed-selection',
-      builder: (context, state) => const BedSelectionScreen(),
+      builder: (context, state) {
+        final hostel = state.extra as Hostel?;
+        if (hostel == null) {
+          return const Scaffold(body: Center(child: Text("Hostel data missing")));
+        }
+        return BedSelectionScreen(hostel: hostel);
+      },
     ),
   ],
 );

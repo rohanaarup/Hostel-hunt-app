@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/theme/notifiers.dart';
 
 // ── Booking Requests ─────────────────────────────────────────────────────────
@@ -37,7 +37,7 @@ class BookingRequestsPage extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: themeNotifier,
       builder: (context, isDark, _) => Scaffold(
-        backgroundColor: AppColors.background(isDark),
+        backgroundColor: AppColors.appBackground(isDark),
         body: Column(
           children: [
             _SubHeader(title: 'Booking Requests', subtitle: '${_kBookings.length} requests total', isDark: isDark),
@@ -113,7 +113,7 @@ class _BookingCard extends StatelessWidget {
                     style: TextStyle(color: _statusColor, fontSize: 13, fontWeight: FontWeight.w700)),
                 const Spacer(),
                 Text('Submitted: ${booking.submittedOn}',
-                    style: TextStyle(color: AppColors.textTertiary(isDark), fontSize: 11)),
+                    style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 11)),
               ],
             ),
           ),
@@ -123,10 +123,10 @@ class _BookingCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(booking.hostelName,
-                    style: TextStyle(color: AppColors.textPrimary(isDark), fontSize: 16, fontWeight: FontWeight.w700)),
+                    style: TextStyle(color: AppColors.textHeading(isDark), fontSize: 16, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 5),
                 Row(children: [
-                  Icon(Icons.location_on_rounded, size: 13, color: AppColors.orange),
+                  Icon(Icons.location_on_rounded, size: 13, color: AppColors.auburn500),
                   const SizedBox(width: 3),
                   Flexible(child: Text(booking.location, style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 13))),
                 ]),
@@ -159,7 +159,7 @@ class _BookingCard extends StatelessWidget {
                       child: ElevatedButton(
                         onPressed: () => HapticFeedback.lightImpact(),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.orange, foregroundColor: AppColors.white,
+                          backgroundColor: AppColors.auburn500, foregroundColor: AppColors.ivory50,
                           elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                         ),
@@ -186,8 +186,8 @@ class _InfoChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isOrange ? AppColors.orange : AppColors.textSecondary(isDark);
-    final bg = isOrange ? AppColors.orange.withValues(alpha: 0.1) : AppColors.chipBg(isDark);
+    final color = isOrange ? AppColors.auburn500 : AppColors.textSecondary(isDark);
+    final bg = isOrange ? AppColors.auburn500.withValues(alpha: 0.1) : AppColors.chipInactiveBg(isDark);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
@@ -213,7 +213,7 @@ class _SubHeader extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(16, top + 12, 16, 20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: isDark ? [AppColors.cardDark, AppColors.surfaceDark2] : [AppColors.headerStart, AppColors.headerEnd],
+          colors: isDark ? [AppColors.ivory900, AppColors.ivory900] : [AppColors.ivory100, AppColors.ivory50],
           begin: Alignment.topLeft, end: Alignment.bottomRight,
         ),
         borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
@@ -226,16 +226,16 @@ class _SubHeader extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isDark ? AppColors.chipDark : AppColors.white.withValues(alpha: 0.75),
+                color: isDark ? AppColors.ivory700 : AppColors.ivory50.withValues(alpha: 0.75),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: isDark ? AppColors.white.withValues(alpha: 0.08) : AppColors.border, width: 0.8),
+                border: Border.all(color: isDark ? AppColors.ivory50.withValues(alpha: 0.08) : AppColors.ivory300, width: 0.8),
               ),
-              child: Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: AppColors.textPrimary(isDark)),
+              child: Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: AppColors.textHeading(isDark)),
             ),
           ),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: TextStyle(color: AppColors.textPrimary(isDark), fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+            Text(title, style: TextStyle(color: AppColors.textHeading(isDark), fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
             Text(subtitle, style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 12)),
           ])),
         ],
@@ -243,3 +243,4 @@ class _SubHeader extends StatelessWidget {
     );
   }
 }
+

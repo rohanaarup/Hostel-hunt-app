@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/features/hostel/presentation/providers/hostel_provider.dart';
 import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/theme/notifiers.dart';
 import 'package:rohii_hostel_hunt/core/utils/hostel_navigation.dart';
 
@@ -21,8 +21,8 @@ class _SavedHostelsPageState extends ConsumerState<SavedHostelsPage> {
     setState(() => _saved?.remove(h));
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text('${h.name} removed from saved',
-          style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w500)),
-      backgroundColor: AppColors.textMuted,
+          style: const TextStyle(color: AppColors.ivory50, fontWeight: FontWeight.w500)),
+      backgroundColor: AppColors.ink700,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -40,7 +40,7 @@ class _SavedHostelsPageState extends ConsumerState<SavedHostelsPage> {
     return ValueListenableBuilder<bool>(
       valueListenable: themeNotifier,
       builder: (context, isDark, _) => Scaffold(
-        backgroundColor: AppColors.background(isDark),
+        backgroundColor: AppColors.appBackground(isDark),
         body: Column(
           children: [
             _ProfileSubHeader(title: 'Saved Hostels', isDark: isDark,
@@ -100,7 +100,7 @@ class _SavedCardState extends State<_SavedCard> {
           decoration: BoxDecoration(
             color: AppColors.cardBg(isDark),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: isDark ? AppColors.chipDark : AppColors.border, width: 0.8),
+            border: Border.all(color: isDark ? AppColors.ivory700 : AppColors.ivory300, width: 0.8),
             boxShadow: [BoxShadow(color: AppColors.shadow.withValues(alpha: isDark ? 0.2 : 0.06), blurRadius: 16, offset: const Offset(0, 5))],
           ),
           child: Row(
@@ -111,8 +111,8 @@ class _SavedCardState extends State<_SavedCard> {
                 child: Image.asset(h.image, width: 110, height: 110, fit: BoxFit.cover,
                     errorBuilder: (ctx, err, st) => Container(
                       width: 110, height: 110,
-                      color: AppColors.orange.withValues(alpha: 0.1),
-                      child: Icon(Icons.apartment_rounded, color: AppColors.orange, size: 36),
+                      color: AppColors.auburn500.withValues(alpha: 0.1),
+                      child: Icon(Icons.apartment_rounded, color: AppColors.auburn500, size: 36),
                     )),
               ),
               // Info
@@ -128,19 +128,19 @@ class _SavedCardState extends State<_SavedCard> {
                             margin: const EdgeInsets.only(right: 5),
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
-                              color: AppColors.orange.withValues(alpha: 0.1),
+                              color: AppColors.auburn500.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: Text(t, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.orange)),
+                            child: Text(t, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.auburn500)),
                           )),
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Text(h.name, style: TextStyle(color: AppColors.textPrimary(isDark), fontSize: 14, fontWeight: FontWeight.w700),
+                      Text(h.name, style: TextStyle(color: AppColors.textHeading(isDark), fontSize: 14, fontWeight: FontWeight.w700),
                           maxLines: 1, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 3),
                       Row(children: [
-                        Icon(Icons.location_on_rounded, size: 12, color: AppColors.orange),
+                        Icon(Icons.location_on_rounded, size: 12, color: AppColors.auburn500),
                         const SizedBox(width: 3),
                         Flexible(child: Text(h.location, style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 12),
                             maxLines: 1, overflow: TextOverflow.ellipsis)),
@@ -148,12 +148,12 @@ class _SavedCardState extends State<_SavedCard> {
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          Text(h.price, style: const TextStyle(color: AppColors.orange, fontSize: 14, fontWeight: FontWeight.w800)),
+                          Text(h.price, style: const TextStyle(color: AppColors.auburn500, fontSize: 14, fontWeight: FontWeight.w800)),
                           const Spacer(),
                           Row(children: [
-                            const Icon(Icons.star_rounded, color: AppColors.orange, size: 14),
+                            const Icon(Icons.star_rounded, color: AppColors.auburn500, size: 14),
                             const SizedBox(width: 2),
-                            Text('${h.rating}', style: TextStyle(color: AppColors.textPrimary(isDark), fontSize: 12, fontWeight: FontWeight.w700)),
+                            Text('${h.rating}', style: TextStyle(color: AppColors.textHeading(isDark), fontSize: 12, fontWeight: FontWeight.w700)),
                           ]),
                         ],
                       ),
@@ -200,7 +200,7 @@ class _RecentActivityPageState extends ConsumerState<RecentActivityPage> {
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.cardBg(isDark),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Clear History?', style: TextStyle(color: AppColors.textPrimary(isDark), fontWeight: FontWeight.w700)),
+        title: Text('Clear History?', style: TextStyle(color: AppColors.textHeading(isDark), fontWeight: FontWeight.w700)),
         content: Text('Remove all recently viewed hostels?',
             style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 14)),
         actions: [
@@ -208,7 +208,7 @@ class _RecentActivityPageState extends ConsumerState<RecentActivityPage> {
               child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary(isDark)))),
           ElevatedButton(
             onPressed: () { Navigator.pop(context); setState(() => _history?.clear()); },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: AppColors.white,
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: AppColors.ivory50,
                 elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
             child: const Text('Clear All'),
           ),
@@ -234,7 +234,7 @@ class _RecentActivityPageState extends ConsumerState<RecentActivityPage> {
     return ValueListenableBuilder<bool>(
       valueListenable: themeNotifier,
       builder: (context, isDark, _) => Scaffold(
-        backgroundColor: AppColors.background(isDark),
+        backgroundColor: AppColors.appBackground(isDark),
         body: Column(
           children: [
             _ProfileSubHeader(
@@ -293,7 +293,7 @@ class _RecentCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.cardBg(isDark),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: isDark ? AppColors.chipDark : AppColors.border, width: 0.8),
+          border: Border.all(color: isDark ? AppColors.ivory700 : AppColors.ivory300, width: 0.8),
           boxShadow: [BoxShadow(color: AppColors.shadow.withValues(alpha: isDark ? 0.18 : 0.05), blurRadius: 12, offset: const Offset(0, 4))],
         ),
         child: Row(
@@ -303,8 +303,8 @@ class _RecentCard extends StatelessWidget {
               child: Image.asset(h.image, width: 68, height: 68, fit: BoxFit.cover,
                   errorBuilder: (ctx, err, st) => Container(
                     width: 68, height: 68,
-                    color: AppColors.orange.withValues(alpha: 0.1),
-                    child: const Icon(Icons.apartment_rounded, color: AppColors.orange),
+                    color: AppColors.auburn500.withValues(alpha: 0.1),
+                    child: const Icon(Icons.apartment_rounded, color: AppColors.auburn500),
                   )),
             ),
             const SizedBox(width: 12),
@@ -312,24 +312,24 @@ class _RecentCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(h.name, style: TextStyle(color: AppColors.textPrimary(isDark), fontSize: 14, fontWeight: FontWeight.w700),
+                  Text(h.name, style: TextStyle(color: AppColors.textHeading(isDark), fontSize: 14, fontWeight: FontWeight.w700),
                       maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 3),
                   Text(h.location, style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 12),
                       maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 5),
                   Row(children: [
-                    Text(h.price, style: const TextStyle(color: AppColors.orange, fontSize: 13, fontWeight: FontWeight.w700)),
+                    Text(h.price, style: const TextStyle(color: AppColors.auburn500, fontSize: 13, fontWeight: FontWeight.w700)),
                     const Spacer(),
-                    Icon(Icons.access_time_rounded, size: 11, color: AppColors.textTertiary(isDark)),
+                    Icon(Icons.access_time_rounded, size: 11, color: AppColors.textSecondary(isDark)),
                     const SizedBox(width: 3),
-                    Text(item.viewedAt, style: TextStyle(color: AppColors.textTertiary(isDark), fontSize: 10)),
+                    Text(item.viewedAt, style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 10)),
                   ]),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textTertiary(isDark)),
+            Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textSecondary(isDark)),
           ],
         ),
       ),
@@ -353,8 +353,8 @@ class _ProfileSubHeader extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isDark
-              ? [AppColors.cardDark, AppColors.surfaceDark2]
-              : [AppColors.headerStart, AppColors.headerEnd],
+              ? [AppColors.ivory900, AppColors.ivory900]
+              : [AppColors.ivory100, AppColors.ivory50],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -371,11 +371,11 @@ class _ProfileSubHeader extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isDark ? AppColors.chipDark : AppColors.white.withValues(alpha: 0.75),
+                color: isDark ? AppColors.ivory700 : AppColors.ivory50.withValues(alpha: 0.75),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: isDark ? AppColors.white.withValues(alpha: 0.08) : AppColors.border, width: 0.8),
+                border: Border.all(color: isDark ? AppColors.ivory50.withValues(alpha: 0.08) : AppColors.ivory300, width: 0.8),
               ),
-              child: Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: AppColors.textPrimary(isDark)),
+              child: Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: AppColors.textHeading(isDark)),
             ),
           ),
           const SizedBox(width: 14),
@@ -383,7 +383,7 @@ class _ProfileSubHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TextStyle(color: AppColors.textPrimary(isDark), fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+                Text(title, style: TextStyle(color: AppColors.textHeading(isDark), fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
                 Text(subtitle, style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 12)),
               ],
             ),
@@ -422,7 +422,7 @@ class _EmptyState extends StatelessWidget {
               child: Icon(icon, size: 48, color: color),
             ),
             const SizedBox(height: 22),
-            Text(title, style: TextStyle(color: AppColors.textPrimary(isDark), fontSize: 18, fontWeight: FontWeight.w700), textAlign: TextAlign.center),
+            Text(title, style: TextStyle(color: AppColors.textHeading(isDark), fontSize: 18, fontWeight: FontWeight.w700), textAlign: TextAlign.center),
             const SizedBox(height: 10),
             Text(message, style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 14, height: 1.5), textAlign: TextAlign.center),
           ],
@@ -431,3 +431,4 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
+

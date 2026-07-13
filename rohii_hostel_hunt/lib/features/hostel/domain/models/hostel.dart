@@ -25,7 +25,9 @@ class HostelImage {
   factory HostelImage.fromJson(Map<String, dynamic> json) {
     return HostelImage(
       id: json['id'] as String? ?? '',
-      imageUrl: json['file'] as String? ?? '',
+      imageUrl: json['remote_url'] as String? ?? 
+                json['file_url'] as String? ?? 
+                json['file'] as String? ?? '',
       caption: json['file_name'] as String? ?? '',
     );
   }
@@ -223,7 +225,7 @@ class Hostel {
       owner: (json['owner'] as num?)?.toInt(),
       createdAt: json['created_at'] as String? ?? '',
       updatedAt: json['updated_at'] as String? ?? '',
-      imagesList: (json['media_items'] as List<dynamic>?)
+      imagesList: ((json['media'] ?? json['media_items']) as List<dynamic>?)
               ?.map((e) => HostelImage.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/theme/notifiers.dart';
 import 'package:rohii_hostel_hunt/shared/widgets/sub_header.dart';
 
@@ -21,7 +21,7 @@ class PaymentsPage extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: themeNotifier,
       builder: (context, isDark, _) => Scaffold(
-        backgroundColor: AppColors.background(isDark),
+        backgroundColor: AppColors.appBackground(isDark),
         body: Column(
           children: [
             SubHeader(title: 'Payments & Rentals', subtitle: '${_txns.length} transactions', isDark: isDark),
@@ -31,24 +31,24 @@ class PaymentsPage extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [AppColors.orange, AppColors.orangeDark],
+                  gradient: const LinearGradient(colors: [AppColors.auburn500, AppColors.auburn700],
                       begin: Alignment.topLeft, end: Alignment.bottomRight),
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: [BoxShadow(color: AppColors.orange.withValues(alpha: 0.3), blurRadius: 16, offset: const Offset(0, 6))],
+                  boxShadow: [BoxShadow(color: AppColors.auburn500.withValues(alpha: 0.3), blurRadius: 16, offset: const Offset(0, 6))],
                 ),
                 child: Row(children: [
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Active Rental', style: TextStyle(color: AppColors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+                    const Text('Active Rental', style: TextStyle(color: AppColors.ivory50, fontSize: 12, fontWeight: FontWeight.w500)),
                     const SizedBox(height: 4),
-                    const Text('Sri Lakshmi Hostels', style: TextStyle(color: AppColors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+                    const Text('Sri Lakshmi Hostels', style: TextStyle(color: AppColors.ivory50, fontSize: 16, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 2),
-                    Text('₹6,500/mo', style: TextStyle(color: AppColors.white.withValues(alpha: 0.85), fontSize: 13)),
+                    Text('₹6,500/mo', style: TextStyle(color: AppColors.ivory50.withValues(alpha: 0.85), fontSize: 13)),
                   ]),
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(color: AppColors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
-                    child: const Text('Active', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+                    decoration: BoxDecoration(color: AppColors.ivory50.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
+                    child: const Text('Active', style: TextStyle(color: AppColors.ivory50, fontWeight: FontWeight.w700, fontSize: 12)),
                   ),
                 ]),
               ),
@@ -57,7 +57,7 @@ class PaymentsPage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 16, 0),
               child: Row(children: [
-                Text('Transaction History', style: TextStyle(color: AppColors.textPrimary(isDark), fontSize: 14, fontWeight: FontWeight.w700)),
+                Text('Transaction History', style: TextStyle(color: AppColors.textHeading(isDark), fontSize: 14, fontWeight: FontWeight.w700)),
               ]),
             ),
             Expanded(
@@ -98,7 +98,7 @@ class _TxnCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardBg(isDark),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? AppColors.chipDark : AppColors.border, width: 0.8),
+        border: Border.all(color: isDark ? AppColors.ivory700 : AppColors.ivory300, width: 0.8),
         boxShadow: [BoxShadow(color: AppColors.shadow.withValues(alpha: isDark ? 0.15 : 0.04), blurRadius: 10, offset: const Offset(0, 3))],
       ),
       child: Row(children: [
@@ -109,12 +109,12 @@ class _TxnCard extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(txn.title, style: TextStyle(color: AppColors.textPrimary(isDark), fontSize: 14, fontWeight: FontWeight.w600)),
+          Text(txn.title, style: TextStyle(color: AppColors.textHeading(isDark), fontSize: 14, fontWeight: FontWeight.w600)),
           Text(txn.hostel, style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 12)),
-          Text(txn.date, style: TextStyle(color: AppColors.textTertiary(isDark), fontSize: 11)),
+          Text(txn.date, style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 11)),
         ])),
         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text(txn.amount, style: TextStyle(color: AppColors.textPrimary(isDark), fontSize: 15, fontWeight: FontWeight.w800)),
+          Text(txn.amount, style: TextStyle(color: AppColors.textHeading(isDark), fontSize: 15, fontWeight: FontWeight.w800)),
           const SizedBox(height: 3),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -126,3 +126,4 @@ class _TxnCard extends StatelessWidget {
     );
   }
 }
+

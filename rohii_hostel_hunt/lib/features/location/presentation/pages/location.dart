@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/features/location/domain/models/location_model.dart';
 import 'package:rohii_hostel_hunt/features/location/presentation/providers/location_riverpod_provider.dart';
 import 'package:rohii_hostel_hunt/core/theme/theme_provider.dart';
@@ -115,21 +115,21 @@ class _LocationScreenState extends ConsumerState<LocationScreen>
     final locState = ref.watch(locationProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background(isDark),
+      backgroundColor: AppColors.appBackground(isDark),
       // ── APP BAR ──
       appBar: AppBar(
-        backgroundColor: AppColors.background(isDark),
+        backgroundColor: AppColors.appBackground(isDark),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back_rounded,
-              color: AppColors.textPrimary(isDark)),
+              color: AppColors.textHeading(isDark)),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Select a location',
           style: TextStyle(
-            color: AppColors.textPrimary(isDark),
+            color: AppColors.textHeading(isDark),
             fontSize: 20,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.3,
@@ -223,7 +223,7 @@ class _LocationScreenState extends ConsumerState<LocationScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('$feature — coming soon'),
-        backgroundColor: AppColors.orange,
+        backgroundColor: AppColors.auburn500,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(seconds: 2),
@@ -258,17 +258,17 @@ class _SearchBar extends StatelessWidget {
       curve: Curves.easeOutCubic,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.chipBg(isDark),
+        color: AppColors.chipInactiveBg(isDark),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isFocused
-              ? AppColors.orange.withValues(alpha: 0.7)
-              : AppColors.border.withValues(alpha: isDark ? 0.15 : 0.8),
+              ? AppColors.auburn500.withValues(alpha: 0.7)
+              : AppColors.ivory300.withValues(alpha: isDark ? 0.15 : 0.8),
           width: isFocused ? 1.5 : 1.0,
         ),
         boxShadow: isFocused
             ? [BoxShadow(
-                color: AppColors.orangeGlow,
+                color: AppColors.auburn500.withValues(alpha: 0.25),
                 blurRadius: 12,
                 offset: const Offset(0, 2),
               )]
@@ -278,7 +278,7 @@ class _SearchBar extends StatelessWidget {
         children: [
           Icon(
             Icons.search_rounded,
-            color: isFocused ? AppColors.orange : AppColors.textTertiary(isDark),
+            color: isFocused ? AppColors.auburn500 : AppColors.textSecondary(isDark),
             size: 22,
           ),
           const SizedBox(width: 10),
@@ -287,13 +287,13 @@ class _SearchBar extends StatelessWidget {
               focusNode: focusNode,
               controller: controller,
               style: TextStyle(
-                color: AppColors.textPrimary(isDark),
+                color: AppColors.textHeading(isDark),
                 fontSize: 15,
               ),
               decoration: InputDecoration(
                 hintText: 'Search for area, street name…',
                 hintStyle: TextStyle(
-                  color: AppColors.textTertiary(isDark),
+                  color: AppColors.textSecondary(isDark),
                   fontSize: 15,
                   fontWeight: FontWeight.w400,
                 ),
@@ -338,8 +338,8 @@ class _CurrentLocationCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isDark
-                  ? AppColors.white.withValues(alpha: 0.06)
-                  : AppColors.border.withValues(alpha: 0.5),
+                  ? AppColors.ivory50.withValues(alpha: 0.06)
+                  : AppColors.ivory300.withValues(alpha: 0.5),
             ),
           ),
           child: Row(
@@ -348,12 +348,12 @@ class _CurrentLocationCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.orange.withValues(alpha: 0.1),
+                  color: AppColors.auburn500.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.my_location_rounded,
-                  color: AppColors.orange,
+                  color: AppColors.auburn500,
                   size: 22,
                 ),
               ),
@@ -365,7 +365,7 @@ class _CurrentLocationCard extends StatelessWidget {
               // Chevron
               Icon(
                 Icons.chevron_right_rounded,
-                color: AppColors.textTertiary(isDark),
+                color: AppColors.textSecondary(isDark),
                 size: 22,
               ),
             ],
@@ -382,7 +382,7 @@ class _CurrentLocationCard extends StatelessWidget {
         Text(
           'Use current location',
           style: TextStyle(
-            color: AppColors.orange,
+            color: AppColors.auburn500,
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -407,7 +407,7 @@ class _CurrentLocationCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              Icon(Icons.refresh_rounded, color: AppColors.orange, size: 16),
+              Icon(Icons.refresh_rounded, color: AppColors.auburn500, size: 16),
             ],
           )
 
@@ -429,7 +429,7 @@ class _CurrentLocationCard extends StatelessWidget {
           Text(
             'Tap to detect your location',
             style: TextStyle(
-              color: AppColors.textTertiary(isDark),
+              color: AppColors.textSecondary(isDark),
               fontSize: 12.5,
             ),
           ),
@@ -467,19 +467,19 @@ class _ActionRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isDark
-                  ? AppColors.white.withValues(alpha: 0.06)
-                  : AppColors.border.withValues(alpha: 0.5),
+                  ? AppColors.ivory50.withValues(alpha: 0.06)
+                  : AppColors.ivory300.withValues(alpha: 0.5),
             ),
           ),
           child: Row(
             children: [
-              Icon(icon, color: AppColors.orange, size: 22),
+              Icon(icon, color: AppColors.auburn500, size: 22),
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
                   label,
                   style: TextStyle(
-                    color: AppColors.orange,
+                    color: AppColors.auburn500,
                     fontSize: 14.5,
                     fontWeight: FontWeight.w600,
                   ),
@@ -487,7 +487,7 @@ class _ActionRow extends StatelessWidget {
               ),
               Icon(
                 Icons.chevron_right_rounded,
-                color: AppColors.textTertiary(isDark),
+                color: AppColors.textSecondary(isDark),
                 size: 20,
               ),
             ],
@@ -522,7 +522,7 @@ class _SavedAddressesSection extends StatelessWidget {
         Text(
           'SAVED ADDRESSES',
           style: TextStyle(
-            color: AppColors.textTertiary(isDark),
+            color: AppColors.textSecondary(isDark),
             fontSize: 12,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.6,
@@ -538,12 +538,12 @@ class _SavedAddressesSection extends StatelessWidget {
               child: Column(
                 children: [
                   Icon(Icons.location_off_rounded,
-                      color: AppColors.textTertiary(isDark), size: 48),
+                      color: AppColors.textSecondary(isDark), size: 48),
                   const SizedBox(height: 12),
                   Text(
                     'No saved addresses yet',
                     style: TextStyle(
-                      color: AppColors.textTertiary(isDark),
+                      color: AppColors.textSecondary(isDark),
                       fontSize: 14,
                     ),
                   ),
@@ -615,8 +615,8 @@ class _AddressCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isDark
-                  ? AppColors.white.withValues(alpha: 0.06)
-                  : AppColors.border.withValues(alpha: 0.4),
+                  ? AppColors.ivory50.withValues(alpha: 0.06)
+                  : AppColors.ivory300.withValues(alpha: 0.4),
             ),
             boxShadow: [
               BoxShadow(
@@ -635,13 +635,13 @@ class _AddressCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppColors.orange
+                      color: AppColors.auburn500
                           .withValues(alpha: isDark ? 0.15 : 0.08),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       _iconForTitle(address.title),
-                      color: AppColors.orange,
+                      color: AppColors.auburn500,
                       size: 22,
                     ),
                   ),
@@ -650,7 +650,7 @@ class _AddressCard extends StatelessWidget {
                     Text(
                       '${address.distanceKm!.toStringAsFixed(1)} km',
                       style: TextStyle(
-                        color: AppColors.textTertiary(isDark),
+                        color: AppColors.textSecondary(isDark),
                         fontSize: 10.5,
                         fontWeight: FontWeight.w500,
                       ),
@@ -668,7 +668,7 @@ class _AddressCard extends StatelessWidget {
                     Text(
                       address.title,
                       style: TextStyle(
-                        color: AppColors.textPrimary(isDark),
+                        color: AppColors.textHeading(isDark),
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                       ),
@@ -689,7 +689,7 @@ class _AddressCard extends StatelessWidget {
                       Text(
                         'Phone number: ${address.phone}',
                         style: TextStyle(
-                          color: AppColors.textTertiary(isDark),
+                          color: AppColors.textSecondary(isDark),
                           fontSize: 11.5,
                         ),
                       ),
@@ -757,7 +757,7 @@ class _CircleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? AppColors.textTertiary(isDark);
+    final c = color ?? AppColors.textSecondary(isDark);
     return InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: onTap,
@@ -821,10 +821,10 @@ class _ShimmerBarState extends State<_ShimmerBar>
   }
 
   Widget _bar(double width) {
-    final base = widget.isDark ? AppColors.chipDark : AppColors.chip;
+    final base = widget.isDark ? AppColors.ivory700 : AppColors.ivory300;
     final highlight = widget.isDark
-        ? AppColors.white.withValues(alpha: 0.08)
-        : AppColors.white.withValues(alpha: 0.6);
+        ? AppColors.ivory50.withValues(alpha: 0.08)
+        : AppColors.ivory50.withValues(alpha: 0.6);
 
     return Container(
       width: width,
@@ -843,3 +843,4 @@ class _ShimmerBarState extends State<_ShimmerBar>
     );
   }
 }
+

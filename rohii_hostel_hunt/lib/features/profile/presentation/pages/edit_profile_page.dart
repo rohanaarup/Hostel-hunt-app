@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/theme/notifiers.dart';
 
 class EditProfilePage extends StatefulWidget {
@@ -31,7 +31,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     setState(() => _saving = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: const Text('Profile updated successfully!',
-          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w500)),
+          style: TextStyle(color: AppColors.ivory50, fontWeight: FontWeight.w500)),
       backgroundColor: AppColors.success,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -45,7 +45,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return ValueListenableBuilder<bool>(
       valueListenable: themeNotifier,
       builder: (context, isDark, _) => Scaffold(
-        backgroundColor: AppColors.background(isDark),
+        backgroundColor: AppColors.appBackground(isDark),
         body: Column(
           children: [
             // ── Header ──
@@ -102,7 +102,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
           decoration: BoxDecoration(
             color: AppColors.cardBg(isDark),
-            border: Border(top: BorderSide(color: isDark ? AppColors.chipDark : AppColors.border, width: 0.8)),
+            border: Border(top: BorderSide(color: isDark ? AppColors.ivory700 : AppColors.ivory300, width: 0.8)),
           ),
           child: Row(
             children: [
@@ -111,7 +111,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   onPressed: () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.textSecondary(isDark),
-                    side: BorderSide(color: isDark ? AppColors.chipDark : AppColors.border),
+                    side: BorderSide(color: isDark ? AppColors.ivory700 : AppColors.ivory300),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
@@ -124,15 +124,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 child: ElevatedButton(
                   onPressed: _saving ? null : () => _save(isDark),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.orange,
-                    foregroundColor: AppColors.white,
+                    backgroundColor: AppColors.auburn500,
+                    foregroundColor: AppColors.ivory50,
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   child: _saving
                       ? const SizedBox(width: 20, height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white))
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.ivory50))
                       : const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 ),
               ),
@@ -150,8 +150,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isDark
-              ? [AppColors.cardDark, AppColors.surfaceDark2]
-              : [AppColors.headerStart, AppColors.headerEnd],
+              ? [AppColors.ivory900, AppColors.ivory900]
+              : [AppColors.ivory100, AppColors.ivory50],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -165,7 +165,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           _BackBtn(isDark: isDark),
           const SizedBox(width: 16),
           Text('Edit Profile',
-              style: TextStyle(color: AppColors.textPrimary(isDark), fontSize: 18, fontWeight: FontWeight.w700)),
+              style: TextStyle(color: AppColors.textHeading(isDark), fontSize: 18, fontWeight: FontWeight.w700)),
         ],
       ),
     );
@@ -185,13 +185,13 @@ class _AvatarPicker extends StatelessWidget {
             padding: const EdgeInsets.all(3),
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(colors: [AppColors.orange, AppColors.orangeLight],
+              gradient: LinearGradient(colors: [AppColors.auburn500, AppColors.auburn300],
                 begin: Alignment.topLeft, end: Alignment.bottomRight),
             ),
             child: CircleAvatar(
               radius: 52,
               backgroundColor: AppColors.cardBg(isDark),
-              child: Icon(Icons.person_rounded, size: 50, color: AppColors.orange),
+              child: Icon(Icons.person_rounded, size: 50, color: AppColors.auburn500),
             ),
           ),
           Positioned(
@@ -201,10 +201,10 @@ class _AvatarPicker extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: const BoxDecoration(
-                  color: AppColors.orange,
+                  color: AppColors.auburn500,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.camera_alt_rounded, color: AppColors.white, size: 18),
+                child: const Icon(Icons.camera_alt_rounded, color: AppColors.ivory50, size: 18),
               ),
             ),
           ),
@@ -228,14 +228,14 @@ class _SectionCard extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 10),
           child: Text(label.toUpperCase(),
-              style: TextStyle(color: AppColors.textTertiary(isDark), fontSize: 11,
+              style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 11,
                   fontWeight: FontWeight.w700, letterSpacing: 1.1)),
         ),
         Container(
           decoration: BoxDecoration(
             color: AppColors.cardBg(isDark),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: isDark ? AppColors.chipDark : AppColors.border, width: 0.8),
+            border: Border.all(color: isDark ? AppColors.ivory700 : AppColors.ivory300, width: 0.8),
             boxShadow: [BoxShadow(color: AppColors.shadow.withValues(alpha: 0.05), blurRadius: 12, offset: const Offset(0, 4))],
           ),
           child: Column(children: children),
@@ -267,20 +267,20 @@ class _Field extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
-              Icon(icon, size: 20, color: AppColors.orange.withValues(alpha: 0.8)),
+              Icon(icon, size: 20, color: AppColors.auburn500.withValues(alpha: 0.8)),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(label,
-                        style: TextStyle(color: AppColors.textTertiary(isDark), fontSize: 11,
+                        style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 11,
                             fontWeight: FontWeight.w600, letterSpacing: 0.3)),
                     const SizedBox(height: 4),
                     TextField(
                       controller: ctrl,
                       keyboardType: type,
-                      style: TextStyle(color: AppColors.textPrimary(isDark), fontSize: 14, fontWeight: FontWeight.w500),
+                      style: TextStyle(color: AppColors.textHeading(isDark), fontSize: 14, fontWeight: FontWeight.w500),
                       decoration: const InputDecoration(
                         isDense: true,
                         contentPadding: EdgeInsets.zero,
@@ -292,14 +292,14 @@ class _Field extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.edit_outlined, size: 14, color: AppColors.textTertiary(isDark)),
+              Icon(Icons.edit_outlined, size: 14, color: AppColors.textSecondary(isDark)),
             ],
           ),
         ),
         if (!isLast)
           Padding(
             padding: const EdgeInsets.only(left: 48),
-            child: Divider(height: 1, thickness: 0.6, color: isDark ? AppColors.chipDark : AppColors.border),
+            child: Divider(height: 1, thickness: 0.6, color: isDark ? AppColors.ivory700 : AppColors.ivory300),
           ),
       ],
     );
@@ -316,12 +316,13 @@ class _BackBtn extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: isDark ? AppColors.chipDark : AppColors.white.withValues(alpha: 0.75),
+          color: isDark ? AppColors.ivory700 : AppColors.ivory50.withValues(alpha: 0.75),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: isDark ? AppColors.white.withValues(alpha: 0.08) : AppColors.border, width: 0.8),
+          border: Border.all(color: isDark ? AppColors.ivory50.withValues(alpha: 0.08) : AppColors.ivory300, width: 0.8),
         ),
-        child: Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: AppColors.textPrimary(isDark)),
+        child: Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: AppColors.textHeading(isDark)),
       ),
     );
   }
 }
+

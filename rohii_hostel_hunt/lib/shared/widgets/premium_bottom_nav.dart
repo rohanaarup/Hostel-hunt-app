@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 
 /// Floating pill-style bottom navigation with:
 ///  • Spring-physics bounce on tap
@@ -26,14 +26,12 @@ class PremiumBottomNav extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(24, 0, 24, 14),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       decoration: BoxDecoration(
-        color: isDark
-            ? AppColors.cardDark.withValues(alpha: 0.95)
-            : AppColors.white.withValues(alpha: 0.95),
+        color: AppColors.bottomNavBg(isDark).withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
           color: isDark
-              ? AppColors.white.withValues(alpha: 0.06)
-              : AppColors.orange.withValues(alpha: 0.12),
+              ? AppColors.ivory50.withValues(alpha: 0.06)
+              : AppColors.bottomNavActive(isDark).withValues(alpha: 0.12),
           width: 0.5,
         ),
         boxShadow: [
@@ -47,7 +45,7 @@ class PremiumBottomNav extends StatelessWidget {
           ),
           // subtle orange glow
           BoxShadow(
-            color: AppColors.orange.withValues(alpha: isDark ? 0.05 : 0.04),
+            color: AppColors.bottomNavActive(isDark).withValues(alpha: isDark ? 0.05 : 0.04),
             blurRadius: 12,
             offset: const Offset(0, 2),
           ),
@@ -198,8 +196,8 @@ class _NavItemState extends State<_NavItem>
             gradient: widget.isSelected
                 ? LinearGradient(
                     colors: [
-                      AppColors.orange.withValues(alpha: 0.15),
-                      AppColors.orangeLight.withValues(alpha: 0.08),
+                      AppColors.bottomNavActive(widget.isDark).withValues(alpha: 0.15),
+                      AppColors.bottomNavActive(widget.isDark).withValues(alpha: 0.08),
                     ],
                   )
                 : null,
@@ -207,7 +205,7 @@ class _NavItemState extends State<_NavItem>
             borderRadius: BorderRadius.circular(20),
             border: widget.isSelected
                 ? Border.all(
-                    color: AppColors.orange.withValues(alpha: 0.2),
+                    color: AppColors.bottomNavActive(widget.isDark).withValues(alpha: 0.2),
                     width: 0.5,
                   )
                 : null,
@@ -228,8 +226,8 @@ class _NavItemState extends State<_NavItem>
                       key: ValueKey(widget.isSelected),
                       size: 22,
                       color: widget.isSelected
-                          ? AppColors.orange
-                          : AppColors.textTertiary(widget.isDark),
+                          ? AppColors.bottomNavActive(widget.isDark)
+                          : AppColors.bottomNavInactive(widget.isDark),
                     ),
                   ),
                   // Expanding label
@@ -241,8 +239,8 @@ class _NavItemState extends State<_NavItem>
                             padding: const EdgeInsets.only(left: 6),
                             child: Text(
                               widget.label,
-                              style: const TextStyle(
-                                color: AppColors.orange,
+                              style: TextStyle(
+                                color: AppColors.bottomNavActive(widget.isDark),
                                 fontWeight: FontWeight.w700,
                                 fontSize: 12,
                                 letterSpacing: 0.2,
@@ -262,13 +260,13 @@ class _NavItemState extends State<_NavItem>
                 height: 3,
                 decoration: BoxDecoration(
                   color: widget.isSelected
-                      ? AppColors.orange
+                      ? AppColors.bottomNavActive(widget.isDark)
                       : const Color(0x00000000),
                   borderRadius: BorderRadius.circular(2),
                   boxShadow: widget.isSelected
                       ? [
-                          const BoxShadow(
-                            color: AppColors.orangeGlow,
+                          BoxShadow(
+                            color: AppColors.bottomNavActive(widget.isDark).withValues(alpha: 0.4),
                             blurRadius: 6,
                             offset: Offset(0, 1),
                           ),
@@ -283,3 +281,4 @@ class _NavItemState extends State<_NavItem>
     );
   }
 }
+

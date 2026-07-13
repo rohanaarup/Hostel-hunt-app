@@ -11,7 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
 import 'package:rohii_hostel_hunt/features/hostel/presentation/pages/bed_selection_screen.dart';
-import 'package:rohii_hostel_hunt/core/theme/colors.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/theme/theme_provider.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
 
@@ -148,7 +148,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
         content: Row(
           children: [
             const Icon(Icons.construction_rounded,
-                color: AppColors.white, size: 18),
+                color: AppColors.ivory50, size: 18),
             const SizedBox(width: 8),
             Flexible(
               child: Text(
@@ -156,13 +156,13 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: AppColors.white,
+                  color: AppColors.ivory50,
                 ),
               ),
             ),
           ],
         ),
-        backgroundColor: AppColors.orange,
+        backgroundColor: AppColors.auburn500,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -173,8 +173,8 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
 
   void _showMediaSheet(bool isPhoto) {
     final isDark = ref.read(themeProvider);
-    final surfaceColor = isDark ? AppColors.surfaceDark : AppColors.card;
-    final textColor = AppColors.textPrimary(isDark);
+    final surfaceColor = isDark ? AppColors.ivory900 : AppColors.ivory100;
+    final textColor = AppColors.textHeading(isDark);
     final mutedColor = AppColors.textSecondary(isDark);
 
     final title = isPhoto ? 'Photo Gallery' : 'Video Tour';
@@ -236,7 +236,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                         return Container(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(16),
-                            color: isDark ? AppColors.cardDark : AppColors.chip,
+                            color: isDark ? AppColors.ivory900 : AppColors.ivory300,
                             boxShadow: [
                               BoxShadow(
                                 color: AppColors.shadow.withValues(alpha: 0.05),
@@ -276,8 +276,8 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
 
   void _showContactSheet() {
     final isDark = ref.read(themeProvider);
-    final surfaceColor = isDark ? AppColors.surfaceDark : AppColors.card;
-    final textColor = AppColors.textPrimary(isDark);
+    final surfaceColor = isDark ? AppColors.ivory900 : AppColors.ivory100;
+    final textColor = AppColors.textHeading(isDark);
     final mutedColor = AppColors.textSecondary(isDark);
 
     showModalBottomSheet(
@@ -315,7 +315,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
             const SizedBox(height: 16),
             Row(
               children: [
-                const Icon(Icons.phone_rounded, color: AppColors.orange),
+                const Icon(Icons.phone_rounded, color: AppColors.auburn500),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
@@ -335,7 +335,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                 ),
                 IconButton(
                   icon: const Icon(Icons.call_rounded, size: 20),
-                  color: AppColors.orange,
+                  color: AppColors.auburn500,
                   onPressed: _hostel.contactPhone.isNotEmpty
                       ? () => launchUrl(Uri.parse('tel:${_hostel.contactPhone.replaceAll(' ', '')}'))
                       : null,
@@ -345,7 +345,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
             const SizedBox(height: 12),
             Row(
               children: [
-                const Icon(Icons.email_rounded, color: AppColors.orange),
+                const Icon(Icons.email_rounded, color: AppColors.auburn500),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
@@ -365,7 +365,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                 ),
                 IconButton(
                   icon: const Icon(Icons.open_in_new_rounded, size: 20),
-                  color: AppColors.orange,
+                  color: AppColors.auburn500,
                   onPressed: _hostel.contactEmail.isNotEmpty
                       ? () => launchUrl(Uri.parse('mailto:${_hostel.contactEmail}'))
                       : null,
@@ -390,7 +390,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
     Navigator.push(
       context,
       CupertinoPageRoute(
-        builder: (_) => const BedSelectionScreen(),
+        builder: (_) => BedSelectionScreen(hostel: _hostel),
       ),
     );
   }
@@ -404,7 +404,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
     final isDark = ref.watch(themeProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background(isDark),
+      backgroundColor: AppColors.appBackground(isDark),
       body: Stack(
         children: [
           CustomScrollView(
@@ -462,7 +462,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.apartment_rounded, size: 20, color: AppColors.orange),
+                Icon(Icons.apartment_rounded, size: 20, color: AppColors.auburn500),
                 const SizedBox(height: 2),
                 Text(
                   "HOSTEL HUNT",
@@ -470,7 +470,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 2.0,
-                    color: AppColors.textPrimary(isDark),
+                    color: AppColors.textHeading(isDark),
                   ),
                 ),
               ],
@@ -511,7 +511,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
             height: 260,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
-              color: isDark ? AppColors.cardDark : AppColors.chip,
+              color: isDark ? AppColors.ivory900 : AppColors.ivory300,
               boxShadow: [
                 BoxShadow(
                   color: isDark
@@ -534,7 +534,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                     fit: BoxFit.cover,
                     fallbackIcon: Icons.apartment_rounded,
                     fallbackSize: 64,
-                    fallbackBgColor: isDark ? AppColors.cardDark : AppColors.chip,
+                    fallbackBgColor: isDark ? AppColors.ivory900 : AppColors.ivory300,
                   );
                 },
               ),
@@ -554,10 +554,10 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(4),
                   color: isActive
-                      ? AppColors.orange
+                      ? AppColors.auburn500
                       : (isDark
-                          ? AppColors.white.withValues(alpha: 0.2)
-                          : AppColors.border),
+                          ? AppColors.ivory50.withValues(alpha: 0.2)
+                          : AppColors.ivory300),
                 ),
               );
             }),
@@ -592,7 +592,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                 margin: const EdgeInsets.only(right: 6),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppColors.orange.withValues(alpha: isDark ? 0.15 : 0.1),
+                  color: AppColors.auburn500.withValues(alpha: isDark ? 0.15 : 0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -600,19 +600,19 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.orange,
+                    color: AppColors.auburn500,
                   ),
                 ),
               )),
           const Spacer(),
-          const Icon(Icons.star_rounded, color: AppColors.orange, size: 18),
+          const Icon(Icons.star_rounded, color: AppColors.auburn500, size: 18),
           const SizedBox(width: 3),
           Text(
             '${hostel.rating}',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary(isDark),
+              color: AppColors.textHeading(isDark),
             ),
           ),
           const SizedBox(width: 4),
@@ -649,7 +649,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.5,
                 height: 1.15,
-                color: AppColors.textPrimary(isDark),
+                color: AppColors.textHeading(isDark),
               ),
             ),
           ),
@@ -659,8 +659,8 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppColors.orange.withValues(alpha: isDark ? 0.2 : 0.12),
-                  AppColors.orangeDark.withValues(alpha: isDark ? 0.12 : 0.06),
+                  AppColors.auburn500.withValues(alpha: isDark ? 0.2 : 0.12),
+                  AppColors.auburn700.withValues(alpha: isDark ? 0.12 : 0.06),
                 ],
               ),
               borderRadius: BorderRadius.circular(14),
@@ -670,7 +670,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: AppColors.orange,
+                color: AppColors.auburn500,
               ),
             ),
           ),
@@ -739,7 +739,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                 width: 4,
                 height: 20,
                 decoration: BoxDecoration(
-                  color: AppColors.orange,
+                  color: AppColors.auburn500,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -750,7 +750,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 2.0,
-                  color: AppColors.textPrimary(isDark),
+                  color: AppColors.textHeading(isDark),
                 ),
               ),
             ],
@@ -796,14 +796,14 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [AppColors.orange, AppColors.orangeDark],
+              colors: [AppColors.auburn500, AppColors.auburn700],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
-                color: AppColors.orange.withValues(alpha: 0.35),
+                color: AppColors.auburn500.withValues(alpha: 0.35),
                 blurRadius: 16,
                 offset: const Offset(0, 6),
               ),
@@ -812,12 +812,12 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.call_rounded, color: AppColors.white, size: 20),
+              Icon(Icons.call_rounded, color: AppColors.ivory50, size: 20),
               SizedBox(width: 10),
               Text(
                 'Contact Owner Now',
                 style: TextStyle(
-                  color: AppColors.white,
+                  color: AppColors.ivory50,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.5,
@@ -851,13 +851,13 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
             ),
             decoration: BoxDecoration(
               color: isDark
-                  ? AppColors.surfaceDark.withValues(alpha: 0.85)
-                  : AppColors.card.withValues(alpha: 0.88),
+                  ? AppColors.ivory900.withValues(alpha: 0.85)
+                  : AppColors.ivory100.withValues(alpha: 0.88),
               border: Border(
                 top: BorderSide(
                   color: isDark
-                      ? AppColors.white.withValues(alpha: 0.06)
-                      : AppColors.border,
+                      ? AppColors.ivory50.withValues(alpha: 0.06)
+                      : AppColors.ivory300,
                   width: 0.5,
                 ),
               ),
@@ -876,14 +876,14 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                         height: 54,
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [AppColors.orange, AppColors.orangeDark],
+                            colors: [AppColors.auburn500, AppColors.auburn700],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.orange.withValues(alpha: 0.4),
+                              color: AppColors.auburn500.withValues(alpha: 0.4),
                               blurRadius: 14,
                               offset: const Offset(0, 5),
                             ),
@@ -893,12 +893,12 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.calendar_month_rounded,
-                                color: AppColors.white, size: 20),
+                                color: AppColors.ivory50, size: 20),
                             SizedBox(width: 10),
                             Text(
                               'BOOK NOW',
                               style: TextStyle(
-                                color: AppColors.white,
+                                color: AppColors.ivory50,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 1.5,
@@ -926,15 +926,15 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                     height: 54,
                     decoration: BoxDecoration(
                       color: _isSaved
-                          ? AppColors.orange.withValues(alpha: 0.12)
-                          : (isDark ? AppColors.cardDark : AppColors.chip),
+                          ? AppColors.auburn500.withValues(alpha: 0.12)
+                          : (isDark ? AppColors.ivory900 : AppColors.ivory300),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: _isSaved
-                            ? AppColors.orange.withValues(alpha: 0.4)
+                            ? AppColors.auburn500.withValues(alpha: 0.4)
                             : (isDark
-                                ? AppColors.white.withValues(alpha: 0.08)
-                                : AppColors.border),
+                                ? AppColors.ivory50.withValues(alpha: 0.08)
+                                : AppColors.ivory300),
                         width: 1.5,
                       ),
                     ),
@@ -948,7 +948,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                             : Icons.favorite_border_rounded,
                         key: ValueKey(_isSaved),
                         color: _isSaved
-                            ? AppColors.orange
+                            ? AppColors.auburn500
                             : AppColors.textSecondary(isDark),
                         size: 22,
                       ),
@@ -979,7 +979,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
         child: Icon(
           fallbackIcon,
           size: fallbackSize,
-          color: AppColors.orange.withValues(alpha: 0.4),
+          color: AppColors.auburn500.withValues(alpha: 0.4),
         ),
       ),
     );
@@ -998,7 +998,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
     if (!imagePath.startsWith('http')) {
       // Strip '/api' from base URL to get the media root
       final baseUrl = ApiService.baseUrl;
-      final mediaBase = baseUrl.replaceAll('/api', '');
+      final mediaBase = baseUrl.replaceAll(RegExp(r'/api(?:/v1)?'), '');
       url = '$mediaBase$imagePath';
     }
 
@@ -1015,7 +1015,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                     loadingProgress.expectedTotalBytes!
                 : null,
             valueColor: AlwaysStoppedAnimation<Color>(
-              AppColors.orange.withValues(alpha: 0.6),
+              AppColors.auburn500.withValues(alpha: 0.6),
             ),
           ),
         );
@@ -1065,19 +1065,19 @@ class _PremiumIconButtonState extends State<_PremiumIconButton> {
           height: 42,
           decoration: BoxDecoration(
             color: widget.isDark
-                ? AppColors.white.withValues(alpha: 0.08)
-                : AppColors.chip,
+                ? AppColors.ivory50.withValues(alpha: 0.08)
+                : AppColors.ivory300,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: widget.isDark
-                  ? AppColors.white.withValues(alpha: 0.06)
-                  : AppColors.border,
+                  ? AppColors.ivory50.withValues(alpha: 0.06)
+                  : AppColors.ivory300,
               width: 1,
             ),
           ),
           child: Icon(
             widget.icon,
-            color: AppColors.textPrimary(widget.isDark),
+            color: AppColors.textHeading(widget.isDark),
             size: 20,
           ),
         ),
@@ -1129,27 +1129,27 @@ class _ActionPillState extends State<_ActionPill> {
           decoration: BoxDecoration(
             gradient: isFilled
                 ? const LinearGradient(
-                    colors: [AppColors.orange, AppColors.orangeDark],
+                    colors: [AppColors.auburn500, AppColors.auburn700],
                   )
                 : null,
             color: isFilled
                 ? null
                 : (widget.isDark
-                    ? AppColors.white.withValues(alpha: 0.06)
-                    : AppColors.chip),
+                    ? AppColors.ivory50.withValues(alpha: 0.06)
+                    : AppColors.ivory300),
             borderRadius: BorderRadius.circular(14),
             border: isFilled
                 ? null
                 : Border.all(
                     color: widget.isDark
-                        ? AppColors.white.withValues(alpha: 0.1)
-                        : AppColors.border,
+                        ? AppColors.ivory50.withValues(alpha: 0.1)
+                        : AppColors.ivory300,
                     width: 1,
                   ),
             boxShadow: isFilled
                 ? [
                     BoxShadow(
-                      color: AppColors.orange.withValues(alpha: 0.3),
+                      color: AppColors.auburn500.withValues(alpha: 0.3),
                       blurRadius: 10,
                       offset: const Offset(0, 3),
                     ),
@@ -1163,9 +1163,9 @@ class _ActionPillState extends State<_ActionPill> {
                 widget.icon,
                 size: 16,
                 color: isFilled
-                    ? AppColors.white
+                    ? AppColors.ivory50
                     : (widget.isDark
-                        ? AppColors.white.withValues(alpha: 0.7)
+                        ? AppColors.ivory50.withValues(alpha: 0.7)
                         : AppColors.textSecondary(widget.isDark)),
               ),
               const SizedBox(width: 6),
@@ -1177,8 +1177,8 @@ class _ActionPillState extends State<_ActionPill> {
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.5,
                     color: isFilled
-                        ? AppColors.white
-                        : AppColors.textPrimary(widget.isDark),
+                        ? AppColors.ivory50
+                        : AppColors.textHeading(widget.isDark),
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1240,12 +1240,12 @@ class _FacilityItem extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: isDark ? AppColors.cardDark : AppColors.card,
+          color: isDark ? AppColors.ivory900 : AppColors.ivory100,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isDark
-                ? AppColors.white.withValues(alpha: 0.05)
-                : AppColors.border.withValues(alpha: 0.6),
+                ? AppColors.ivory50.withValues(alpha: 0.05)
+                : AppColors.ivory300.withValues(alpha: 0.6),
           ),
           boxShadow: [
             BoxShadow(
@@ -1263,10 +1263,10 @@ class _FacilityItem extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: AppColors.orange.withValues(alpha: isDark ? 0.12 : 0.08),
+                color: AppColors.auburn500.withValues(alpha: isDark ? 0.12 : 0.08),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(_icon, size: 18, color: AppColors.orange),
+              child: Icon(_icon, size: 18, color: AppColors.auburn500),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -1275,7 +1275,7 @@ class _FacilityItem extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: AppColors.textPrimary(isDark),
+                  color: AppColors.textHeading(isDark),
                   height: 1.3,
                 ),
               ),
@@ -1286,3 +1286,4 @@ class _FacilityItem extends StatelessWidget {
     );
   }
 }
+
