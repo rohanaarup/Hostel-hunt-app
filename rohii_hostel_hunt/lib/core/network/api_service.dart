@@ -29,7 +29,7 @@ class ApiService {
   // ─────────────────────────────────────────────────────────────────────────
 
   // Toggle this to true if you want to test against your local Django server
-  static const bool useLocalBackend = true;
+  static bool useLocalBackend = false;
 
   /// Platform-aware base URL:
   ///   Flutter Web  → http://127.0.0.1:8001  (localhost, same machine)
