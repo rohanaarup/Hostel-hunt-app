@@ -315,7 +315,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
             const SizedBox(height: 16),
             Row(
               children: [
-                const Icon(Icons.phone_rounded, color: AppColors.auburn500),
+                const Icon(Icons.phone_outlined, color: AppColors.auburn500),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
@@ -345,7 +345,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
             const SizedBox(height: 12),
             Row(
               children: [
-                const Icon(Icons.email_rounded, color: AppColors.auburn500),
+                const Icon(Icons.email_outlined, color: AppColors.auburn500),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
@@ -462,7 +462,12 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.apartment_rounded, size: 20, color: AppColors.auburn500),
+                Image.asset(
+                  'images/logos/logo_icon_white_bg.png',
+                  width: 28,
+                  height: 28,
+                  fit: BoxFit.contain,
+                ),
                 const SizedBox(height: 2),
                 Text(
                   "HOSTEL HUNT",

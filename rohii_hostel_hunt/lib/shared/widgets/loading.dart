@@ -1,8 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rohii_hostel_hunt/theme/app_colors.dart';
-import 'package:rohii_hostel_hunt/core/utils/call.dart';
 
+/// Splash Screen — auto-navigates to /landing after 1.8 s.
+/// Background: city_sunset.jpg (dramatic orange skyline) with radial
+/// gradient overlay. Logo pulses gently while waiting.
 class Loading extends StatefulWidget {
   const Loading({super.key});
 
@@ -10,176 +14,187 @@ class Loading extends StatefulWidget {
   State<Loading> createState() => _LoadingState();
 }
 
-class _LoadingState extends State<Loading> with SingleTickerProviderStateMixin {
+class _LoadingState extends State<Loading> with TickerProviderStateMixin {
   late AnimationController _pulseController;
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
+
+    // Make status bar transparent so image bleeds through
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+    ));
+
+    // Gentle pulse on logo
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 1800),
     )..repeat(reverse: true);
+
+    // Fade-in on mount
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOut,
+    );
+    _fadeController.forward();
+
+    // Auto-navigate after 1.8 s
+    Timer(const Duration(milliseconds: 1800), () {
+      if (mounted) context.go('/landing');
+    });
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final size = MediaQuery.of(context).size;
+
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF1E1030),  // deep purple-dark
-              AppColors.appBackground(true),
-            ],
+      backgroundColor: isDark ? AppColors.ink900 : const Color(0xFF1A0A00),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // ── Layer 1: Full-bleed background photo ──
+          Image.asset(
+            'images/backgrounds/city_sunset.jpg',
+            fit: BoxFit.cover,
+            width: size.width,
+            height: size.height,
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.55)
+                : Colors.black.withValues(alpha: 0.28),
+            colorBlendMode: BlendMode.darken,
           ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Spacer(flex: 2),
 
-            // ── Animated logo with orange glow ──
-            AnimatedBuilder(
-              animation: _pulseController,
-              builder: (context, child) {
-                final glow = 0.2 + _pulseController.value * 0.25;
-                return Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppColors.auburn500.withValues(alpha: 0.4),
-                      width: 2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.auburn500.withValues(alpha: glow),
-                        blurRadius: 40,
-                        spreadRadius: 8,
-                      ),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: Image.asset(
-                      'images/loading.png',
-                      height: 100,
-                      width: 100,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                );
-              },
-            ),
-
-            const SizedBox(height: 36),
-
-            // ── Brand text ──
-            Text(
-              "MEE HOSTEL",
-              style: AppCall.headlineTextFieldStyle().copyWith(
-                color: AppColors.ivory50,
-                letterSpacing: 3.0,
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
+          // ── Layer 2: Radial vignette overlay ──
+          Container(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment.center,
+                radius: 1.2,
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: isDark ? 0.75 : 0.60),
+                ],
+                stops: const [0.3, 1.0],
               ),
-              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
-            Text(
-              "find your sweet home away from home",
-              style: TextStyle(
-                color: AppColors.ivory300,
-                fontSize: 15,
-                fontStyle: FontStyle.italic,
-                letterSpacing: 0.3,
+          ),
+
+          // ── Layer 3: Bottom fade-up for legibility ──
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              height: size.height * 0.35,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: isDark ? 0.85 : 0.70),
+                    Colors.transparent,
+                  ],
+                ),
               ),
-              textAlign: TextAlign.center,
             ),
+          ),
 
-            const Spacer(flex: 3),
-
-            // ── Buttons ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 36),
+          // ── Layer 4: Content ──
+          FadeTransition(
+            opacity: _fadeAnimation,
+            child: SafeArea(
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Primary CTA — Orange gradient
-                  Container(
-                    width: double.infinity,
-                    height: 55,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.auburn500, AppColors.auburn700],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.auburn500.withValues(alpha: 0.4),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
+                  const Spacer(flex: 3),
+
+                  // Animated logo
+                  AnimatedBuilder(
+                    animation: _pulseController,
+                    builder: (context, child) {
+                      final scale = 1.0 + _pulseController.value * 0.04;
+                      final glowOpacity = 0.25 + _pulseController.value * 0.30;
+                      return Transform.scale(
+                        scale: scale,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.auburn300
+                                    .withValues(alpha: glowOpacity),
+                                blurRadius: 48,
+                                spreadRadius: 12,
+                              ),
+                            ],
+                          ),
+                          child: child,
                         ),
-                      ],
+                      );
+                    },
+                    child: Image.asset(
+                      isDark
+                          ? 'images/logos/logo_icon_dark_bg.png'
+                          : 'images/logos/logo_stacked_white_bg.png',
+                      width: size.width * 0.42,
+                      fit: BoxFit.contain,
                     ),
-                    child: ElevatedButton(
-                      onPressed: () => context.push('/about'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0x00000000),
-                        foregroundColor: AppColors.ivory50,
-                        shadowColor: const Color(0x00000000),
-                        minimumSize: const Size(double.infinity, 55),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                  ),
+
+                  const Spacer(flex: 1),
+
+                  // Tagline
+                  Text(
+                    'FIND YOUR SPACE. FEEL AT HOME.',
+                    style: TextStyle(
+                      color: AppColors.ivory50.withValues(alpha: 0.85),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 2.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+
+                  const SizedBox(height: 48),
+
+                  // Subtle loading indicator
+                  SizedBox(
+                    width: 32,
+                    height: 2,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        backgroundColor:
+                            AppColors.ivory50.withValues(alpha: 0.2),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.auburn300.withValues(alpha: 0.8),
                         ),
-                      ),
-                      child: const Text(
-                        "Start Hunting",
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w700),
                       ),
                     ),
                   ),
 
-                  const SizedBox(height: 16),
-
-                  // Secondary — Outlined with orange
-                  OutlinedButton(
-                    onPressed: () => context.push('/login'),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                        color: AppColors.auburn500.withValues(alpha: 0.6),
-                        width: 1.5,
-                      ),
-                      foregroundColor: AppColors.auburn500,
-                      minimumSize: const Size(double.infinity, 55),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: const Text(
-                      "Login Now",
-                      style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.w600),
-                    ),
-                  ),
+                  const Spacer(flex: 2),
                 ],
               ),
             ),
-
-            const Spacer(flex: 1),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
-

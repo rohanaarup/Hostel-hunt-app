@@ -5,17 +5,16 @@ import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
 import 'dart:async';
 
-class SignupPage extends StatefulWidget {
-  const SignupPage({super.key});
+class ForgotPasswordPage extends StatefulWidget {
+  const ForgotPasswordPage({super.key});
 
   @override
-  State<SignupPage> createState() => _SignupPageState();
+  State<ForgotPasswordPage> createState() => _ForgotPasswordPageState();
 }
 
-class _SignupPageState extends State<SignupPage>
+class _ForgotPasswordPageState extends State<ForgotPasswordPage>
     with SingleTickerProviderStateMixin {
   // ─── Controllers ──────────────────────────────────────────────────────────
-  final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -23,13 +22,11 @@ class _SignupPageState extends State<SignupPage>
       TextEditingController();
 
   // ─── Focus nodes ──────────────────────────────────────────────────────────
-  final FocusNode _nameFocus = FocusNode();
   final FocusNode _emailFocus = FocusNode();
   final FocusNode _otpFocus = FocusNode();
   final FocusNode _passwordFocus = FocusNode();
   final FocusNode _confirmFocus = FocusNode();
 
-  bool _nameFocused = false;
   bool _emailFocused = false;
   bool _otpFocused = false;
   bool _passwordFocused = false;
@@ -73,7 +70,6 @@ class _SignupPageState extends State<SignupPage>
         CurvedAnimation(parent: _formController, curve: Curves.easeOut);
     _formController.forward();
 
-    _nameFocus.addListener(() => setState(() => _nameFocused = _nameFocus.hasFocus));
     _emailFocus.addListener(() => setState(() => _emailFocused = _emailFocus.hasFocus));
     _otpFocus.addListener(() => setState(() => _otpFocused = _otpFocus.hasFocus));
     _passwordFocus.addListener(() => setState(() => _passwordFocused = _passwordFocus.hasFocus));
@@ -82,12 +78,10 @@ class _SignupPageState extends State<SignupPage>
 
   @override
   void dispose() {
-    _fullNameController.dispose();
     _emailController.dispose();
     _otpController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _nameFocus.dispose();
     _emailFocus.dispose();
     _otpFocus.dispose();
     _passwordFocus.dispose();
@@ -118,7 +112,6 @@ class _SignupPageState extends State<SignupPage>
 
   Future<void> _sendOTP() async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fullName = _fullNameController.text.trim();
     final email = _emailController.text.trim().toLowerCase();
 
     setState(() {
@@ -126,13 +119,6 @@ class _SignupPageState extends State<SignupPage>
       _isLoading = true;
     });
 
-    if (fullName.isEmpty) {
-      setState(() {
-        _errorMessage = 'Please enter your full name';
-        _isLoading = false;
-      });
-      return;
-    }
     if (email.isEmpty || !email.contains('@')) {
       setState(() {
         _errorMessage = 'Please enter a valid email address';
@@ -217,7 +203,7 @@ class _SignupPageState extends State<SignupPage>
         {
           'identifier': email,
           'identifier_type': 'email',
-          'purpose': 'signup',
+          'purpose': 'forgot_password',
         },
       );
 
@@ -279,7 +265,7 @@ class _SignupPageState extends State<SignupPage>
         'identifier': email,
         'identifier_type': 'email',
         'otp': otp,
-        'purpose': 'signup',
+        'purpose': 'forgot_password',
       });
 
       if (response.success) {
@@ -309,7 +295,7 @@ class _SignupPageState extends State<SignupPage>
     }
   }
 
-  Future<void> _signUp() async {
+  Future<void> _resetPassword() async {
     setState(() => _errorMessage = '');
 
     final password = _passwordController.text;
@@ -330,14 +316,12 @@ class _SignupPageState extends State<SignupPage>
     setState(() => _isLoading = true);
 
     try {
-      final fullName = _fullNameController.text.trim();
       final email = _emailController.text.trim().toLowerCase();
 
-      final response = await _api.post('/auth/register/', {
+      final response = await _api.post('/auth/reset-password/', {
         'identifier': email,
         'identifier_type': 'email',
-        'display_name': fullName,
-        'password': password,
+        'new_password': password,
         'verification_token': _verificationToken,
       });
 
@@ -352,7 +336,7 @@ class _SignupPageState extends State<SignupPage>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
-              'Account created successfully! Please login.'),
+              'Password reset successfully! Please login.'),
           backgroundColor: AppColors.emerald500,
           duration: const Duration(seconds: 2),
         ),
@@ -361,7 +345,7 @@ class _SignupPageState extends State<SignupPage>
       if (mounted) context.go('/login');
     } catch (e) {
       setState(() {
-        _errorMessage = 'Sign up failed. Please try again.';
+        _errorMessage = 'Reset failed. Please try again.';
         _isLoading = false;
       });
     }
@@ -453,7 +437,7 @@ class _SignupPageState extends State<SignupPage>
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Discover Your\nPerfect Stay',
+                          'Reset Your\nPassword',
                           style: TextStyle(
                             fontSize: 34,
                             fontWeight: FontWeight.w800,
@@ -470,7 +454,7 @@ class _SignupPageState extends State<SignupPage>
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Create your account to get started',
+                          'Enter your email to receive an OTP',
                           style: TextStyle(
                             fontSize: 14,
                             color:
@@ -558,24 +542,8 @@ class _SignupPageState extends State<SignupPage>
                             const SizedBox(height: 16),
                           ],
 
-                          // ── Step 0: Name + Email ──
-                          _SignupInputField(
-                            controller: _fullNameController,
-                            focusNode: _nameFocus,
-                            isFocused: _nameFocused,
-                            hint: 'Full Name',
-                            prefixIcon: Icons.person_outlined,
-                            enabled: !_otpSent,
-                            isDark: isDark,
-                            inputBg: inputBg,
-                            cardBg: cardBg,
-                            cardBorder: cardBorder,
-                            textColor: textColor,
-                            primaryColor: primaryColor,
-                          ),
-                          const SizedBox(height: 16),
-
-                          _SignupInputField(
+                          // ── Step 0: Email ──
+                          _ForgotInputField(
                             controller: _emailController,
                             focusNode: _emailFocus,
                             isFocused: _emailFocused,
@@ -594,7 +562,7 @@ class _SignupPageState extends State<SignupPage>
                           // ── Send OTP button (step 0) ──
                           if (!_otpSent) ...[
                             const SizedBox(height: 28),
-                            _SignupActionButton(
+                            _ForgotActionButton(
                               label: 'Send OTP',
                               isLoading: _isLoading,
                               onPressed: _isLoading ? null : _sendOTP,
@@ -607,7 +575,7 @@ class _SignupPageState extends State<SignupPage>
                           // ── Step 1: OTP ──
                           if (_otpSent && !_otpVerified) ...[
                             const SizedBox(height: 16),
-                            _SignupInputField(
+                            _ForgotInputField(
                               controller: _otpController,
                               focusNode: _otpFocus,
                               isFocused: _otpFocused,
@@ -626,7 +594,7 @@ class _SignupPageState extends State<SignupPage>
                             Row(
                               children: [
                                 Expanded(
-                                  child: _SignupActionButton(
+                                  child: _ForgotActionButton(
                                     label: 'Verify OTP',
                                     isLoading: _isLoading,
                                     onPressed: _isLoading ? null : _verifyOTP,
@@ -660,7 +628,7 @@ class _SignupPageState extends State<SignupPage>
                           // ── Step 2: Password ──
                           if (_otpVerified) ...[
                             const SizedBox(height: 16),
-                            _SignupInputField(
+                            _ForgotInputField(
                               controller: _passwordController,
                               focusNode: _passwordFocus,
                               isFocused: _passwordFocused,
@@ -688,7 +656,7 @@ class _SignupPageState extends State<SignupPage>
                               ),
                             ),
                             const SizedBox(height: 16),
-                            _SignupInputField(
+                            _ForgotInputField(
                               controller: _confirmPasswordController,
                               focusNode: _confirmFocus,
                               isFocused: _confirmFocused,
@@ -717,10 +685,10 @@ class _SignupPageState extends State<SignupPage>
                               ),
                             ),
                             const SizedBox(height: 28),
-                            _SignupActionButton(
-                              label: 'Create Account',
+                            _ForgotActionButton(
+                              label: 'Reset Password',
                               isLoading: _isLoading,
-                              onPressed: _isLoading ? null : _signUp,
+                              onPressed: _isLoading ? null : _resetPassword,
                               primaryColor: primaryColor,
                               primaryDark: primaryDark,
                               isDark: isDark,
@@ -734,7 +702,7 @@ class _SignupPageState extends State<SignupPage>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                'Already have an account? ',
+                                'Remember your password? ',
                                 style: TextStyle(
                                     color: secondaryText, fontSize: 13),
                               ),
@@ -824,7 +792,7 @@ class _StepIndicator extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Signup input field with focus glow
 // ─────────────────────────────────────────────────────────────────────────────
-class _SignupInputField extends StatelessWidget {
+class _ForgotInputField extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool isFocused;
@@ -842,7 +810,7 @@ class _SignupInputField extends StatelessWidget {
   final bool enabled;
   final int? maxLength;
 
-  const _SignupInputField({
+  const _ForgotInputField({
     required this.controller,
     required this.focusNode,
     required this.isFocused,
@@ -920,7 +888,7 @@ class _SignupInputField extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Signup pill action button
 // ─────────────────────────────────────────────────────────────────────────────
-class _SignupActionButton extends StatefulWidget {
+class _ForgotActionButton extends StatefulWidget {
   final String label;
   final bool isLoading;
   final VoidCallback? onPressed;
@@ -928,7 +896,7 @@ class _SignupActionButton extends StatefulWidget {
   final Color primaryDark;
   final bool isDark;
 
-  const _SignupActionButton({
+  const _ForgotActionButton({
     required this.label,
     required this.isLoading,
     required this.onPressed,
@@ -938,10 +906,10 @@ class _SignupActionButton extends StatefulWidget {
   });
 
   @override
-  State<_SignupActionButton> createState() => _SignupActionButtonState();
+  State<_ForgotActionButton> createState() => _ForgotActionButtonState();
 }
 
-class _SignupActionButtonState extends State<_SignupActionButton>
+class _ForgotActionButtonState extends State<_ForgotActionButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _press;
   late Animation<double> _scale;

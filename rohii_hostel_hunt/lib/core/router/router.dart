@@ -11,6 +11,7 @@ import 'package:rohii_hostel_hunt/features/location/presentation/pages/location.
 import 'package:rohii_hostel_hunt/features/auth/presentation/pages/login_page.dart';
 import 'package:rohii_hostel_hunt/features/search/presentation/pages/search.dart';
 import 'package:rohii_hostel_hunt/features/auth/presentation/pages/signup_page.dart';
+import 'package:rohii_hostel_hunt/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:rohii_hostel_hunt/features/profile/presentation/pages/edit_profile_page.dart';
 import 'package:rohii_hostel_hunt/features/wishlist/presentation/pages/saved_recent_pages.dart';
 import 'package:rohii_hostel_hunt/features/booking/presentation/pages/booking_requests_page.dart';
@@ -18,6 +19,7 @@ import 'package:rohii_hostel_hunt/features/settings/presentation/pages/preferenc
 import 'package:rohii_hostel_hunt/features/payments/presentation/pages/payments_page.dart';
 import 'package:rohii_hostel_hunt/features/support/presentation/pages/support_page.dart';
 import 'package:rohii_hostel_hunt/features/settings/presentation/pages/settings_page.dart';
+import 'package:rohii_hostel_hunt/features/auth/presentation/pages/landing_page.dart';
 
 /// ─────────────────────────────────────────────────────────
 /// Hostel Hunt — GoRouter Configuration
@@ -27,8 +29,12 @@ import 'package:rohii_hostel_hunt/features/settings/presentation/pages/settings_
 /// Every route path is identical to the original GetX setup.
 
 final GoRouter appRouter = GoRouter(
-  initialLocation: '/home',
+  initialLocation: '/loading',
   routes: [
+    GoRoute(
+      path: '/landing',
+      builder: (context, state) => const LandingPage(),
+    ),
     GoRoute(
       path: '/home',
       builder: (context, state) => const Homepage(),
@@ -44,6 +50,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/signup',
       builder: (context, state) => const SignupPage(),
+    ),
+    GoRoute(
+      path: '/forgot-password',
+      builder: (context, state) => const ForgotPasswordPage(),
     ),
     GoRoute(
       path: '/about',

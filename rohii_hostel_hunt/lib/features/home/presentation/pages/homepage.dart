@@ -107,7 +107,6 @@ class _HomepageState extends ConsumerState<Homepage> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: headerBg,
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(32),
           bottomRight: Radius.circular(32),
@@ -125,14 +124,53 @@ class _HomepageState extends ConsumerState<Homepage> {
                 ),
               ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
+        ),
+        child: Stack(
           children: [
-            // ── Top row: location + actions ──
-            Row(
+            // ── Background Image ──
+            Positioned.fill(
+              child: Image.asset(
+                'images/backgrounds/homepage_styling_bg.jpg',
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+              ),
+            ),
+            // ── Gradient Overlay ──
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: isDark
+                        ? [
+                            AppColors.ink900.withValues(alpha: 0.4),
+                            AppColors.ink900.withValues(alpha: 0.8),
+                            AppColors.ink900,
+                          ]
+                        : [
+                            AppColors.ivory50.withValues(alpha: 0.4),
+                            AppColors.ivory50.withValues(alpha: 0.8),
+                            AppColors.ivory50,
+                          ],
+                    stops: const [0.0, 0.65, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            // ── Content ──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ── Top row: location + actions ──
+                  Row(
               children: [
                 // Location — tappable, navigates to location screen
                 GestureDetector(
@@ -232,7 +270,7 @@ class _HomepageState extends ConsumerState<Homepage> {
                       radius: 18,
                       backgroundColor: headerIconBg,
                       child: Icon(
-                        Icons.person_rounded,
+                        Icons.person_outlined,
                         color: primaryColor,
                         size: 20,
                       ),
@@ -258,7 +296,9 @@ class _HomepageState extends ConsumerState<Homepage> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(14),
                     child: Image.asset(
-                      'images/loading.png',
+                      isDark
+                          ? 'images/logos/logo_icon_dark_bg.png'
+                          : 'images/logos/logo_icon_white_bg.png',
                       fit: BoxFit.cover,
                       errorBuilder: (_, e, s) => Icon(
                         Icons.home_work_rounded,
@@ -273,7 +313,7 @@ class _HomepageState extends ConsumerState<Homepage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "AARUPA MATRIX",
+                      "FIND YOUR SPACE",
                       style: TextStyle(
                         color: secondaryTextColor,
                         fontSize: 10,
@@ -334,9 +374,17 @@ class _HomepageState extends ConsumerState<Homepage> {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: searchBarBg,
+                  color: searchBarBg.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    )
+                  ],
                   border: Border.all(
+
                     color: searchBarBorderColor,
                   ),
                 ),
@@ -374,6 +422,9 @@ class _HomepageState extends ConsumerState<Homepage> {
                 ),
               ),
             ),
+          ],
+        ),
+      ),
           ],
         ),
       ),
