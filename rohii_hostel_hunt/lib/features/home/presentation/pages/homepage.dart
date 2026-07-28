@@ -212,7 +212,7 @@ class _HomepageState extends ConsumerState<Homepage> {
                                 builder: (context, ref, _) {
                                   final locState = ref.watch(locationProvider);
                                   return Text(
-                                    locState.selectedCity,
+                                    locState.displayLabel,
                                     style: TextStyle(
                                       color: textColor,
                                       fontSize: 16,
@@ -553,6 +553,12 @@ class _HomepageState extends ConsumerState<Homepage> {
         data: (hostels) {
           // ── Empty state ──
           if (hostels.isEmpty) {
+            final locState = ref.read(locationProvider);
+            final hasLocality = locState.selectedLocality != null &&
+                locState.selectedLocality!.isNotEmpty;
+            final city = locState.selectedCity;
+            final locality = locState.selectedLocality ?? '';
+
             return Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -572,14 +578,16 @@ class _HomepageState extends ConsumerState<Homepage> {
                         ),
                       ),
                       child: Icon(
-                        Icons.apartment_rounded,
+                        Icons.location_off_rounded,
                         size: 44,
                         color: AppColors.auburn500.withValues(alpha: 0.55),
                       ),
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'No hostels available',
+                      hasLocality
+                          ? 'No hostels in $locality'
+                          : 'No hostels available',
                       style: TextStyle(
                         color: AppColors.textHeading(isDark),
                         fontSize: 18,
@@ -588,13 +596,50 @@ class _HomepageState extends ConsumerState<Homepage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Check back later for new listings',
+                      hasLocality
+                          ? 'No listings match this area yet'
+                          : 'Check back later for new listings',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: AppColors.textSecondary(isDark),
                         fontSize: 14,
                       ),
                     ),
+                    if (hasLocality) ...[
+                      const SizedBox(height: 20),
+                      GestureDetector(
+                        onTap: () {
+                          ref.read(locationProvider.notifier).clearLocality();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [AppColors.auburn500, AppColors.auburn700],
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.auburn500.withValues(alpha: 0.3),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            'Show all in $city',
+                            style: const TextStyle(
+                              color: AppColors.ivory50,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

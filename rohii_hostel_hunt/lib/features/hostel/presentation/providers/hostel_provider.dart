@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
+import 'package:rohii_hostel_hunt/features/location/presentation/providers/location_riverpod_provider.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
 import 'package:rohii_hostel_hunt/core/network/api_provider.dart';
 
@@ -7,28 +8,46 @@ import 'package:rohii_hostel_hunt/core/network/api_provider.dart';
 /// Hostel Hunt — Hostel List Provider (Riverpod)
 /// ─────────────────────────────────────────────────────────
 ///
+/// Automatically watches [locationProvider] and re-fetches
+/// when city or locality changes.
+///
 /// Supports filter query params:
 ///   • gender_type: 'boys' | 'girls' | 'mixed'
 ///   • amenity:     'ac'
-///   • no params:   All hostels (no filter)
+///   • city:        case-insensitive city filter
+///   • locality:    case-insensitive partial locality filter
 
 class HostelListNotifier extends AsyncNotifier<List<Hostel>> {
   late final ApiService _api;
 
-  // Current active filters
-  Map<String, String> _activeFilters = {};
+  // Current active chip filters (gender/amenity)
+  Map<String, String> _chipFilters = {};
 
   @override
   Future<List<Hostel>> build() {
     _api = ref.read(apiServiceProvider);
+
+    // Watch location — auto re-fetch when city/locality changes
+    ref.watch(locationProvider.select((s) => '${s.selectedCity}|${s.selectedLocality}'));
+
     return _fetchHostels();
   }
 
-  /// Core fetch logic with optional filter params
+  /// Core fetch logic — merges chip filters with location filters
   Future<List<Hostel>> _fetchHostels() async {
+    final locState = ref.read(locationProvider);
+    final params = <String, String>{..._chipFilters};
+
+    if (locState.selectedCity.isNotEmpty) {
+      params['city'] = locState.selectedCity;
+    }
+    if (locState.selectedLocality != null && locState.selectedLocality!.isNotEmpty) {
+      params['locality'] = locState.selectedLocality!;
+    }
+
     final response = await _api.getRaw(
       '/hostels/',
-      queryParams: _activeFilters.isEmpty ? null : _activeFilters,
+      queryParams: params.isEmpty ? null : params,
     );
 
     if (!response.success) {
@@ -37,12 +56,10 @@ class HostelListNotifier extends AsyncNotifier<List<Hostel>> {
 
     final body = response.body;
 
-    // DRF PageNumberPagination returns: {count, next, previous, results}
     List<dynamic> results;
     if (body is Map<String, dynamic> && body.containsKey('results')) {
       results = body['results'] as List<dynamic>;
     } else if (body is List) {
-      // In case pagination is disabled, body is a plain list
       results = body;
     } else {
       throw Exception('Unexpected response format.');
@@ -57,32 +74,28 @@ class HostelListNotifier extends AsyncNotifier<List<Hostel>> {
   Future<void> applyFilter(String filter) async {
     switch (filter) {
       case 'All':
-        _activeFilters = {};
+        _chipFilters = {};
       case 'Boys':
-        _activeFilters = {'gender_type': 'boys'};
+        _chipFilters = {'gender_type': 'boys'};
       case 'Girls':
-        _activeFilters = {'gender_type': 'girls'};
+        _chipFilters = {'gender_type': 'girls'};
       case 'AC':
-        _activeFilters = {'amenity': 'ac'};
+        _chipFilters = {'amenity': 'ac'};
       case 'Non-AC':
-        // Non-AC: fetch all and client-side exclude those with AC amenity
-        // (backend doesn't support negation on JSON arrays easily)
-        _activeFilters = {};
+        _chipFilters = {};
       case 'Premium':
-        _activeFilters = {};
+        _chipFilters = {};
       default:
-        _activeFilters = {};
+        _chipFilters = {};
     }
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       var hostels = await _fetchHostels();
-      // Client-side post-filter for Non-AC (exclude hostels with 'ac' amenity)
       if (filter == 'Non-AC') {
         hostels = hostels
             .where((h) => !h.amenities.any((a) => a.toLowerCase() == 'ac'))
             .toList();
       }
-      // Premium: show only hostels that have ≥5 amenities (simple heuristic)
       if (filter == 'Premium') {
         hostels = hostels.where((h) => h.amenities.length >= 5).toList();
       }
@@ -103,13 +116,54 @@ final hostelListProvider =
 );
 
 /// ─────────────────────────────────────────────────────────
-/// Hostel Detail Provider (Riverpod)
+/// LocalityCount — returned by the /localities/ endpoint
+/// ─────────────────────────────────────────────────────────
+
+class LocalityCount {
+  final String locality;
+  final int count;
+
+  const LocalityCount({required this.locality, required this.count});
+
+  factory LocalityCount.fromJson(Map<String, dynamic> json) {
+    return LocalityCount(
+      locality: json['locality'] as String? ?? '',
+      count: (json['count'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+/// ─────────────────────────────────────────────────────────
+/// Localities Provider — family keyed by city name
 /// ─────────────────────────────────────────────────────────
 ///
-/// Translation of HostelController.fetchHostelDetail() into a
-/// family AsyncNotifier keyed by hostel ID.
-///
-/// Usage: ref.watch(hostelDetailProvider(hostelId))
+/// Usage: ref.watch(localitiesProvider('Hyderabad'))
+
+final localitiesProvider = FutureProvider.family<List<LocalityCount>, String>(
+  (ref, city) async {
+    final api = ref.read(apiServiceProvider);
+    final response = await api.getRaw(
+      '/hostels/localities/',
+      queryParams: city.isNotEmpty ? {'city': city} : null,
+    );
+
+    if (!response.success) {
+      throw Exception(response.message);
+    }
+
+    final body = response.body;
+    if (body is List) {
+      return body
+          .map((e) => LocalityCount.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
+  },
+);
+
+/// ─────────────────────────────────────────────────────────
+/// Hostel Detail Provider (Riverpod)
+/// ─────────────────────────────────────────────────────────
 
 class HostelDetailNotifier extends FamilyAsyncNotifier<Hostel, int> {
   late final ApiService _api;

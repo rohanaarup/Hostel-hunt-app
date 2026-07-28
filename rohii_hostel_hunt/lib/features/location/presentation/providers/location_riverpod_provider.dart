@@ -2,23 +2,23 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:rohii_hostel_hunt/features/location/domain/models/location_model.dart';
 
 /// ─────────────────────────────────────────────────────────
 /// Hostel Hunt — Location Provider (Riverpod)
 /// ─────────────────────────────────────────────────────────
 ///
-/// 1:1 translation of the ChangeNotifier-based LocationProvider
-/// into a Riverpod Notifier with an immutable state class.
+/// Holds:
+///   • selectedCity     — e.g. "Hyderabad"
+///   • selectedLocality — e.g. "Kondapur" (null = show all in city)
 ///
-/// All existing methods are preserved:
-///   • selectAddress / setCity
-///   • detectCurrentLocation (GPS)
-///   • deleteAddress / addAddress
+/// Persists to SharedPreferences so selection survives app restart.
 
 // ── Immutable state class ──
 class LocationState {
   final String selectedCity;
+  final String? selectedLocality;
   final SavedAddress? selectedAddress;
   final String currentLocationText;
   final bool isDetectingLocation;
@@ -26,7 +26,8 @@ class LocationState {
   final List<SavedAddress> savedAddresses;
 
   const LocationState({
-    this.selectedCity = 'Hyderabad',
+    this.selectedCity = '',
+    this.selectedLocality,
     this.selectedAddress,
     this.currentLocationText = '',
     this.isDetectingLocation = false,
@@ -36,6 +37,8 @@ class LocationState {
 
   LocationState copyWith({
     String? selectedCity,
+    String? selectedLocality,
+    bool clearLocality = false,
     SavedAddress? selectedAddress,
     bool clearSelectedAddress = false,
     String? currentLocationText,
@@ -46,6 +49,7 @@ class LocationState {
   }) {
     return LocationState(
       selectedCity: selectedCity ?? this.selectedCity,
+      selectedLocality: clearLocality ? null : (selectedLocality ?? this.selectedLocality),
       selectedAddress: clearSelectedAddress ? null : (selectedAddress ?? this.selectedAddress),
       currentLocationText: currentLocationText ?? this.currentLocationText,
       isDetectingLocation: isDetectingLocation ?? this.isDetectingLocation,
@@ -53,17 +57,78 @@ class LocationState {
       savedAddresses: savedAddresses ?? this.savedAddresses,
     );
   }
+
+  /// Display label shown in the home header location button.
+  String get displayLabel {
+    if (selectedLocality != null && selectedLocality!.isNotEmpty) {
+      return selectedLocality!;
+    }
+    if (selectedCity.isNotEmpty) return selectedCity;
+    return 'Select City';
+  }
 }
 
 class LocationNotifier extends Notifier<LocationState> {
+  static const _cityKey = 'selected_city';
+  static const _localityKey = 'selected_locality';
+
   @override
   LocationState build() {
-    return LocationState(
-      savedAddresses: SavedAddress.mockAddresses(),
-    );
+    _loadPersistedLocation();
+    return const LocationState();
   }
 
-  /// Select an address and update city — same as LocationProvider.selectAddress
+  Future<void> _loadPersistedLocation() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final city = prefs.getString(_cityKey) ?? '';
+      final locality = prefs.getString(_localityKey);
+      if (city.isNotEmpty) {
+        state = state.copyWith(
+          selectedCity: city,
+          selectedLocality: locality,
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _persist() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_cityKey, state.selectedCity);
+      if (state.selectedLocality != null) {
+        await prefs.setString(_localityKey, state.selectedLocality!);
+      } else {
+        await prefs.remove(_localityKey);
+      }
+    } catch (_) {}
+  }
+
+  /// Select city only — clears locality so we show all hostels in city.
+  void setCity(String city) {
+    state = state.copyWith(selectedCity: city, clearLocality: true);
+    _persist();
+  }
+
+  /// Select city + locality (from locality row tap).
+  void setCityAndLocality(String city, String locality) {
+    state = state.copyWith(selectedCity: city, selectedLocality: locality);
+    _persist();
+  }
+
+  /// Clear only locality — keep city.
+  void clearLocality() {
+    state = state.copyWith(clearLocality: true);
+    _persist();
+  }
+
+  /// Clear both city and locality.
+  void clearAll() {
+    state = const LocationState();
+    _persist();
+  }
+
+  /// Select an address and update city — kept for backward compat.
   void selectAddress(SavedAddress address) {
     final parts = address.fullAddress.split(',');
     final city = parts.length >= 2
@@ -72,15 +137,12 @@ class LocationNotifier extends Notifier<LocationState> {
     state = state.copyWith(
       selectedAddress: address,
       selectedCity: city,
+      clearLocality: true,
     );
+    _persist();
   }
 
-  /// Set city directly — same as LocationProvider.setCity
-  void setCity(String city) {
-    state = state.copyWith(selectedCity: city);
-  }
-
-  /// Detect current GPS location — same as LocationProvider.detectCurrentLocation
+  /// Detect current GPS location and auto-set city.
   Future<void> detectCurrentLocation() async {
     debugPrint('[LocationNotifier] detectCurrentLocation() called');
     state = state.copyWith(
@@ -89,9 +151,7 @@ class LocationNotifier extends Notifier<LocationState> {
     );
 
     try {
-      // Check if location services are enabled
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      debugPrint('[LocationNotifier] Location services enabled: $serviceEnabled');
       if (!serviceEnabled) {
         state = state.copyWith(
           locationError: 'Location services are disabled',
@@ -100,12 +160,9 @@ class LocationNotifier extends Notifier<LocationState> {
         return;
       }
 
-      // Check / request permission
       var permission = await Geolocator.checkPermission();
-      debugPrint('[LocationNotifier] Current permission: $permission');
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        debugPrint('[LocationNotifier] Requested permission, got: $permission');
         if (permission == LocationPermission.denied) {
           state = state.copyWith(
             locationError: 'Location permission denied',
@@ -115,7 +172,6 @@ class LocationNotifier extends Notifier<LocationState> {
         }
       }
       if (permission == LocationPermission.deniedForever) {
-        debugPrint('[LocationNotifier] Permission permanently denied');
         state = state.copyWith(
           locationError: 'Location permission permanently denied. Please enable in Settings.',
           isDetectingLocation: false,
@@ -123,30 +179,20 @@ class LocationNotifier extends Notifier<LocationState> {
         return;
       }
 
-      // Get position
-      debugPrint('[LocationNotifier] Fetching GPS position...');
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
           timeLimit: Duration(seconds: 15),
         ),
       );
-      debugPrint('[LocationNotifier] Got position: ${position.latitude}, ${position.longitude}');
 
-      // Reverse geocode
-      debugPrint('[LocationNotifier] Reverse geocoding...');
       final placemarks = await placemarkFromCoordinates(
         position.latitude,
         position.longitude,
       );
-      debugPrint('[LocationNotifier] Got ${placemarks.length} placemarks');
 
       if (placemarks.isNotEmpty) {
         final p = placemarks.first;
-        debugPrint('[LocationNotifier] Placemark: subLocality=${p.subLocality}, '
-            'locality=${p.locality}, subAdmin=${p.subAdministrativeArea}, '
-            'admin=${p.administrativeArea}');
-
         final locationText = [
           p.subLocality,
           p.locality,
@@ -154,25 +200,23 @@ class LocationNotifier extends Notifier<LocationState> {
           p.administrativeArea,
         ].where((s) => s != null && s.isNotEmpty).join(', ');
 
-        final city = p.locality ?? p.subAdministrativeArea ?? 'Unknown';
-        debugPrint('[LocationNotifier] Resolved: city=$city, text=$locationText');
-
+        final city = p.locality ?? p.subAdministrativeArea ?? '';
         state = state.copyWith(
           currentLocationText: locationText,
           selectedCity: city,
+          clearLocality: true,
           isDetectingLocation: false,
         );
+        _persist();
       } else {
         state = state.copyWith(
           currentLocationText: 'Lat: ${position.latitude.toStringAsFixed(4)}, '
               'Lng: ${position.longitude.toStringAsFixed(4)}',
           isDetectingLocation: false,
         );
-        debugPrint('[LocationNotifier] No placemarks, using coords');
       }
-    } catch (e, stack) {
+    } catch (e) {
       debugPrint('[LocationNotifier] ERROR: $e');
-      debugPrint('[LocationNotifier] Stack: $stack');
       state = state.copyWith(
         locationError: 'Could not detect location. Tap to retry.',
         isDetectingLocation: false,
@@ -180,17 +224,17 @@ class LocationNotifier extends Notifier<LocationState> {
     }
   }
 
-  /// Delete a saved address — same as LocationProvider.deleteAddress
-  void deleteAddress(String id) {
-    state = state.copyWith(
-      savedAddresses: state.savedAddresses.where((a) => a.id != id).toList(),
-    );
-  }
-
-  /// Add a saved address — same as LocationProvider.addAddress
+  /// Add a saved address.
   void addAddress(SavedAddress address) {
     state = state.copyWith(
       savedAddresses: [...state.savedAddresses, address],
+    );
+  }
+
+  /// Delete a saved address.
+  void deleteAddress(String id) {
+    state = state.copyWith(
+      savedAddresses: state.savedAddresses.where((a) => a.id != id).toList(),
     );
   }
 }

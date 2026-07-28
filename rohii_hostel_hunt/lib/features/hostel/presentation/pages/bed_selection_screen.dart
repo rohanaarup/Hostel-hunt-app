@@ -1,43 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/features/hostel/presentation/pages/booking_success_screen.dart';
-
 import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
+import 'package:rohii_hostel_hunt/features/hostel/domain/models/room.dart';
+import 'package:rohii_hostel_hunt/features/hostel/presentation/providers/room_provider.dart';
 
-class BedSelectionScreen extends StatefulWidget {
+class BedSelectionScreen extends ConsumerStatefulWidget {
   final Hostel hostel;
 
   const BedSelectionScreen({super.key, required this.hostel});
 
   @override
-  State<BedSelectionScreen> createState() => _BedSelectionScreenState();
+  ConsumerState<BedSelectionScreen> createState() => _BedSelectionScreenState();
 }
 
-class _BedSelectionScreenState extends State<BedSelectionScreen> {
-  final List<String> floors = ["Ground Floor", "Floor 1", "Floor 2", "Floor 3"];
-  
-  final Map<String, List<String>> roomsPerFloor = {
-    "Ground Floor": ["G01", "G02", "G03"],
-    "Floor 1": ["101", "102", "103", "104"],
-    "Floor 2": ["201", "202", "203"],
-    "Floor 3": ["301", "302", "303", "304", "305"],
-  };
-
-  final List<Map<String, String>> bedsInfo = [
-    {"id": "1", "label": "Bed 1", "status": "available"},
-    {"id": "2", "label": "Bed 2", "status": "booked"},
-    {"id": "3", "label": "Bed 3", "status": "available"},
-    {"id": "4", "label": "Bed 4", "status": "available"},
-  ];
-
-  String? selectedFloor;
-  String? selectedRoom;
+class _BedSelectionScreenState extends ConsumerState<BedSelectionScreen> {
+  int? selectedFloor;
+  Room? selectedRoom;
   String? selectedBedId;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDone = selectedFloor != null && selectedRoom != null && selectedBedId != null;
+
+    final roomsAsyncValue = ref.watch(roomsProvider(widget.hostel.id));
 
     return Scaffold(
       appBar: AppBar(
@@ -48,56 +36,99 @@ class _BedSelectionScreenState extends State<BedSelectionScreen> {
         ),
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildSectionHeader("SELECT FLOOR"),
-            const SizedBox(height: 12),
-            ...floors.map((floor) => _buildFloorCard(floor, cs)),
+      body: roomsAsyncValue.when(
+        data: (groupedRooms) {
+          if (groupedRooms.isEmpty) {
+            return Center(
+              child: Text("No rooms available for this hostel.", style: TextStyle(color: cs.onSurface)),
+            );
+          }
 
-            const SizedBox(height: 20),
-            _buildSectionHeader("SELECT ROOM NO"),
-            const SizedBox(height: 12),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: selectedFloor == null
-                  ? _buildEmptyState("Please select a floor first", cs)
-                  : Column(
-                      key: ValueKey(selectedFloor),
-                      children: roomsPerFloor[selectedFloor]!
-                          .map((room) => _buildRoomCard(room, cs))
-                          .toList(),
-                    ),
-            ),
+          final floors = groupedRooms.keys.toList();
+          if (selectedFloor != null && !floors.contains(selectedFloor)) {
+             // Reset selections if the chosen floor is missing (shouldn't happen on static fetch)
+             WidgetsBinding.instance.addPostFrameCallback((_) {
+               setState(() {
+                 selectedFloor = null;
+                 selectedRoom = null;
+                 selectedBedId = null;
+               });
+             });
+          }
 
-            const SizedBox(height: 20),
-            _buildSectionHeader("SELECT BED IN ROOM"),
-            const SizedBox(height: 12),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: selectedRoom == null
-                  ? _buildEmptyState("Please select a room first", cs)
-                  : Column(
-                      key: ValueKey(selectedRoom),
-                      children: [
-                        _buildRoomDiagram(cs),
-                        const SizedBox(height: 16),
-                        _buildLegend(cs),
-                      ],
-                    ),
-            ),
+          final roomsForSelectedFloor = selectedFloor != null ? groupedRooms[selectedFloor]! : <Room>[];
 
-            const SizedBox(height: 20),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: selectedBedId != null
-                  ? _buildSelectedBedInfo(cs)
-                  : const SizedBox.shrink(),
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildSectionHeader("SELECT FLOOR"),
+                const SizedBox(height: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    children: floors.map((floor) => _buildFloorChip(floor, cs)).toList(),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+                _buildSectionHeader("SELECT ROOM NO"),
+                const SizedBox(height: 12),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: selectedFloor == null
+                      ? _buildEmptyState("Please select a floor first", cs)
+                      : GridView.builder(
+                          key: ValueKey(selectedFloor),
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            childAspectRatio: 1.5,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                          ),
+                          itemCount: roomsForSelectedFloor.length,
+                          itemBuilder: (context, index) {
+                            return _buildRoomCard(roomsForSelectedFloor[index], cs);
+                          },
+                        ),
+                ),
+
+                const SizedBox(height: 20),
+                _buildSectionHeader("SELECT BED IN ROOM"),
+                const SizedBox(height: 12),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: selectedRoom == null
+                      ? _buildEmptyState("Please select a room first", cs)
+                      : Column(
+                          key: ValueKey(selectedRoom?.roomId),
+                          children: [
+                            _buildRoomDiagram(selectedRoom!, cs),
+                            const SizedBox(height: 16),
+                            _buildLegend(cs),
+                          ],
+                        ),
+                ),
+
+                const SizedBox(height: 20),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: selectedBedId != null && selectedRoom != null
+                      ? _buildSelectedBedInfo(selectedRoom!, cs)
+                      : const SizedBox.shrink(),
+                ),
+              ],
             ),
-          ],
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator(color: Colors.orange)),
+        error: (error, stack) => Center(
+          child: Text("Error loading rooms", style: TextStyle(color: cs.error)),
         ),
       ),
       bottomNavigationBar: _buildBottomBar(isActive: isDone, cs: cs),
@@ -110,7 +141,7 @@ class _BedSelectionScreenState extends State<BedSelectionScreen> {
         Container(
           width: 4,
           height: 18,
-          color: Colors.orange, // Constant accent as requested
+          color: Colors.orange,
         ),
         const SizedBox(width: 8),
         Text(
@@ -137,58 +168,44 @@ class _BedSelectionScreenState extends State<BedSelectionScreen> {
     );
   }
 
-  Widget _buildFloorCard(String floor, ColorScheme cs) {
+  Widget _buildFloorChip(int floor, ColorScheme cs) {
     final isSelected = selectedFloor == floor;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedFloor = floor;
-          selectedRoom = null;
-          selectedBedId = null;
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? cs.primary.withOpacity(0.1) : cs.surface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? cs.primary : cs.outline.withOpacity(0.3),
-          ),
+    final String floorName = floor == 0 ? "Ground Floor" : "Floor $floor";
+    
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: ChoiceChip(
+        label: Text(floorName),
+        selected: isSelected,
+        selectedColor: cs.primary.withOpacity(0.2),
+        labelStyle: TextStyle(
+          color: isSelected ? cs.primary : cs.onSurface,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          children: [
-            Radio<String>(
-              value: floor,
-              groupValue: selectedFloor,
-              activeColor: cs.primary,
-              onChanged: (val) {
-                setState(() {
-                  selectedFloor = val;
-                  selectedRoom = null;
-                  selectedBedId = null;
-                });
-              },
-            ),
-            Text(
-              floor, 
-              style: TextStyle(
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: cs.onSurface,
-              ),
-            ),
-          ],
-        ),
+        side: BorderSide(color: isSelected ? cs.primary : cs.outline.withOpacity(0.3)),
+        onSelected: (selected) {
+          setState(() {
+            selectedFloor = selected ? floor : null;
+            selectedRoom = null;
+            selectedBedId = null;
+          });
+        },
       ),
     );
   }
 
-  Widget _buildRoomCard(String room, ColorScheme cs) {
-    final isSelected = selectedRoom == room;
+  Widget _buildRoomCard(Room room, ColorScheme cs) {
+    final isSelected = selectedRoom?.roomId == room.roomId;
+    final isFull = room.availableBeds == 0;
+    
     return GestureDetector(
       onTap: () {
+        if (isFull) {
+           ScaffoldMessenger.of(context).showSnackBar(
+             const SnackBar(content: Text("This room is full")),
+           );
+           return;
+        }
         setState(() {
           selectedRoom = room;
           selectedBedId = null;
@@ -196,54 +213,80 @@ class _BedSelectionScreenState extends State<BedSelectionScreen> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: isSelected ? cs.primary.withOpacity(0.1) : cs.surface,
-          borderRadius: BorderRadius.circular(8),
+          color: isSelected ? cs.primary.withOpacity(0.1) : (isFull ? cs.surface.withOpacity(0.5) : cs.surface),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? cs.primary : cs.outline.withOpacity(0.3),
+            width: isSelected ? 2 : 1,
           ),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Radio<String>(
-              value: room,
-              groupValue: selectedRoom,
-              activeColor: cs.primary,
-              onChanged: (val) {
-                setState(() {
-                  selectedRoom = val;
-                  selectedBedId = null;
-                });
-              },
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  "Room $room", 
+                  room.roomName.isNotEmpty ? room.roomName : "Room ${room.roomNumber}", 
                   style: TextStyle(
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    color: cs.onSurface,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.bold,
+                    color: isFull ? cs.onSurface.withOpacity(0.5) : cs.onSurface,
+                    fontSize: 16,
                   ),
                 ),
+                if (isSelected)
+                  Icon(Icons.check_circle, color: cs.primary, size: 18),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "${room.sharingType.toUpperCase()} • ₹${room.pricePerMonth.toInt()}/mo", 
+              style: TextStyle(
+                fontSize: 10, 
+                color: isFull ? cs.onSurface.withOpacity(0.4) : cs.onSurface.withOpacity(0.7),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Icon(Icons.bed, size: 12, color: isFull ? Colors.red.withOpacity(0.5) : Colors.green),
+                const SizedBox(width: 4),
                 Text(
-                  "4-sharing • ₹6,500/mo", 
+                  isFull ? "FULL" : "${room.availableBeds} left",
                   style: TextStyle(
-                    fontSize: 12, 
-                    color: cs.onSurface.withOpacity(0.6),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: isFull ? Colors.red.withOpacity(0.5) : Colors.green,
                   ),
                 ),
               ],
-            ),
+            )
           ],
         ),
       ),
     );
   }
 
-  Widget _buildRoomDiagram(ColorScheme cs) {
+  Widget _buildRoomDiagram(Room room, ColorScheme cs) {
+    // Generate beds based on bedCount and availableBeds
+    // We assume the first (bedCount - availableBeds) are booked
+    final int bookedBeds = room.bedCount - room.availableBeds;
+    
+    final List<Map<String, dynamic>> bedsInfo = List.generate(room.bedCount, (index) {
+       final bedNo = index + 1;
+       final isAvailable = index >= bookedBeds;
+       return {
+         "id": bedNo.toString(),
+         "label": "Bed $bedNo",
+         "status": isAvailable ? "available" : "booked"
+       };
+    });
+
     return Container(
       width: double.infinity,
       height: 280,
@@ -255,28 +298,29 @@ class _BedSelectionScreenState extends State<BedSelectionScreen> {
       child: Stack(
         children: [
           // Bathroom
-          Positioned(
-            top: 0,
-            left: 0,
-            child: Container(
-              width: 50,
-              height: 70,
-              decoration: const BoxDecoration(
-                color: Colors.grey,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(14), 
-                  bottomRight: Radius.circular(8)
+          if (room.hasAttachedBathroom)
+            Positioned(
+              top: 0,
+              left: 0,
+              child: Container(
+                width: 50,
+                height: 70,
+                decoration: const BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(14), 
+                    bottomRight: Radius.circular(8)
+                  ),
+                ),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.wc, size: 20, color: Colors.white),
+                    Text("BATH\nROOM", style: TextStyle(fontSize: 8, color: Colors.white), textAlign: TextAlign.center),
+                  ],
                 ),
               ),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.wc, size: 20, color: Colors.white),
-                  Text("BATH\nROOM", style: TextStyle(fontSize: 8, color: Colors.white), textAlign: TextAlign.center),
-                ],
-              ),
             ),
-          ),
           
           // Wardrobe
           Positioned(
@@ -364,14 +408,16 @@ class _BedSelectionScreenState extends State<BedSelectionScreen> {
             ),
           ),
           
-          // Beds (2x2 Grid)
+          // Beds
           Center(
             child: SizedBox(
-              width: 160,
+              width: 180,
               height: 180,
               child: Wrap(
-                spacing: 20,
-                runSpacing: 20,
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.center,
+                runAlignment: WrapAlignment.center,
                 children: bedsInfo.map((b) => _buildBedTile(b, cs)).toList(),
               ),
             ),
@@ -381,7 +427,7 @@ class _BedSelectionScreenState extends State<BedSelectionScreen> {
     );
   }
 
-  Widget _buildBedTile(Map<String, String> bed, ColorScheme cs) {
+  Widget _buildBedTile(Map<String, dynamic> bed, ColorScheme cs) {
     final bool isAvailable = bed['status'] == 'available';
     final bool isSelected = selectedBedId == bed['id'];
     
@@ -403,8 +449,8 @@ class _BedSelectionScreenState extends State<BedSelectionScreen> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        width: 70,
-        height: 80,
+        width: 60,
+        height: 70,
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(8),
@@ -419,7 +465,7 @@ class _BedSelectionScreenState extends State<BedSelectionScreen> {
             Icon(
               isAvailable ? Icons.bed : Icons.lock,
               color: textColor,
-              size: 24,
+              size: 20,
             ),
             const SizedBox(height: 4),
             Text(
@@ -427,7 +473,7 @@ class _BedSelectionScreenState extends State<BedSelectionScreen> {
               style: TextStyle(
                 color: textColor,
                 fontWeight: FontWeight.bold,
-                fontSize: 12,
+                fontSize: 10,
               ),
             ),
           ],
@@ -462,8 +508,7 @@ class _BedSelectionScreenState extends State<BedSelectionScreen> {
     );
   }
 
-  Widget _buildSelectedBedInfo(ColorScheme cs) {
-    final bedInfo = bedsInfo.firstWhere((b) => b['id'] == selectedBedId);
+  Widget _buildSelectedBedInfo(Room room, ColorScheme cs) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -475,14 +520,14 @@ class _BedSelectionScreenState extends State<BedSelectionScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "${bedInfo['label']} selected", 
+            "Bed $selectedBedId selected", 
             style: TextStyle(fontWeight: FontWeight.bold, color: cs.primary, fontSize: 16),
           ),
           const SizedBox(height: 4),
-          Text("Type: Lower Bunk", style: TextStyle(color: cs.onSurface)),
-          Text("Near window: Yes", style: TextStyle(color: cs.onSurface)),
+          Text("Room: ${room.roomName.isNotEmpty ? room.roomName : room.roomNumber}", style: TextStyle(color: cs.onSurface)),
+          Text("AC: ${room.isAc ? 'Yes' : 'No'}", style: TextStyle(color: cs.onSurface)),
           const SizedBox(height: 4),
-          Text("Price: ₹6,500/mo", style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurface)),
+          Text("Price: ₹${room.pricePerMonth.toInt()}/mo", style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurface)),
         ],
       ),
     );
@@ -518,13 +563,11 @@ class _BedSelectionScreenState extends State<BedSelectionScreen> {
                       ),
                     );
 
-                    // Simulate network request (Flutter Only Safe Extension)
-                    await Future.delayed(const Duration(seconds: 2));
+                    // Simulate network request
+                    await Future.delayed(const Duration(seconds: 1));
 
                     if (!mounted) return;
                     Navigator.pop(context); // Close loading dialog
-                    
-                    final bedInfo = bedsInfo.firstWhere((b) => b['id'] == selectedBedId);
                     
                     // Navigate to success screen
                     Navigator.push(
@@ -532,9 +575,9 @@ class _BedSelectionScreenState extends State<BedSelectionScreen> {
                       CupertinoPageRoute(
                         builder: (_) => BookingSummaryScreen(
                           hostel: widget.hostel,
-                          floor: selectedFloor!,
-                          room: selectedRoom!,
-                          bedLabel: bedInfo['label']!,
+                          floor: selectedFloor == 0 ? "Ground Floor" : "Floor $selectedFloor",
+                          room: selectedRoom!.roomNumber,
+                          bedLabel: "Bed $selectedBedId",
                         ),
                       ),
                     );

@@ -28,8 +28,9 @@ class ApiService {
   // Configuration
   // ─────────────────────────────────────────────────────────────────────────
 
-  // Toggle this to true if you want to test against your local Django server
-  static bool useLocalBackend = false;
+  // Set to false to use the production Render backend (recommended)
+  // Set to true only for local development with Django dev server
+  static bool useLocalBackend = true;
 
   /// Platform-aware base URL:
   ///   Flutter Web  → http://127.0.0.1:8001  (localhost, same machine)
@@ -43,15 +44,12 @@ class ApiService {
     }
 
     if (kIsWeb) {
-      // Flutter Web runs in Chrome — can reach the host directly
-      return 'http://127.0.0.1:8000/api/v1';
+      return 'http://127.0.0.1:8001/api/v1';
     }
     if (Platform.isAndroid) {
-      // For physical Android devices on the same Wi-Fi to reach your PC
-      return 'http://192.168.1.43:8000/api/v1';
+      return 'http://192.168.0.107:8001/api/v1';
     }
-    // iOS simulator and macOS can reach localhost directly
-    return 'http://localhost:8000/api/v1';
+    return 'http://localhost:8001/api/v1';
   }
 
   static const Duration _timeout = Duration(seconds: 60);
@@ -374,9 +372,26 @@ class ApiResponse {
   factory ApiResponse.fromResponse(http.Response response) {
     try {
       final body = jsonDecode(response.body) as Map<String, dynamic>;
+      
+      bool isSuccess = body['success'] as bool? ?? (response.statusCode < 400);
+      String msg = body['message'] as String? ?? '';
+      
+      if (!isSuccess && body.containsKey('errors') && body['errors'] is Map) {
+        final errors = body['errors'] as Map;
+        if (errors.isNotEmpty) {
+          final firstKey = errors.keys.first;
+          final firstError = errors[firstKey];
+          if (firstError is List && firstError.isNotEmpty) {
+            msg = firstError.first.toString();
+          } else if (firstError is String) {
+            msg = firstError;
+          }
+        }
+      }
+      
       return ApiResponse(
-        success: body['success'] as bool? ?? (response.statusCode < 400),
-        message: body['message'] as String? ?? '',
+        success: isSuccess,
+        message: msg,
         data: body['data'] as Map<String, dynamic>?,
         statusCode: response.statusCode,
       );

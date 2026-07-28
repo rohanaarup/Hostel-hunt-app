@@ -40,19 +40,27 @@ class BookingNotifier extends StateNotifier<BookingState> {
     required String roomNumber,
     required String bedNumber,
     required String checkInDate,
+    String studentName = '',
+    String studentPhone = '',
   }) async {
     state = state.copyWith(status: BookingStatus.loading, errorMessage: null);
 
     try {
       final payload = {
         'hostel': hostelId,
-        'room': roomId,
         'room_name': roomName,
         'floor_number': floorNumber,
         'room_number': roomNumber,
         'bed_number': bedNumber,
         'check_in_date': checkInDate,
+        'student_name': studentName,
+        'student_phone': studentPhone,
+        'payment_mode': 'offline',
       };
+      
+      if (roomId.isNotEmpty) {
+        payload['room'] = roomId;
+      }
 
       final response = await _apiService.authPostRaw('/bookings/', payload);
       

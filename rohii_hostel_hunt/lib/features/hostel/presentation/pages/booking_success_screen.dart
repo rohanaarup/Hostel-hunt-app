@@ -4,7 +4,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
 import 'package:rohii_hostel_hunt/features/hostel/presentation/providers/booking_provider.dart';
-
+import 'package:rohii_hostel_hunt/features/profile/presentation/providers/user_provider.dart';
+import 'package:rohii_hostel_hunt/features/payments/presentation/pages/payment_screen.dart';
 class BookingSummaryScreen extends ConsumerStatefulWidget {
   final Hostel hostel;
   final String floor;
@@ -34,17 +35,17 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
   }
 
   void _submitBooking() {
-    // Room ID is hardcoded for mock bed selection until API provides room models in the UI
-    final dummyRoomId = "00000000-0000-0000-0000-000000000000";
-
+    final userProfile = ref.read(userProvider).valueOrNull;
     ref.read(bookingProvider.notifier).submitBooking(
       hostelId: widget.hostel.id,
-      roomId: dummyRoomId,
+      roomId: '',
       roomName: "Room ${widget.room}",
       floorNumber: widget.floor,
       roomNumber: widget.room,
       bedNumber: widget.bedLabel,
       checkInDate: DateTime.now().toIso8601String().split('T')[0],
+      studentName: userProfile?.name ?? '',
+      studentPhone: userProfile?.phone ?? '',
     );
   }
 
@@ -133,25 +134,24 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
           ),
           const SizedBox(height: 24),
         ],
-        const Spacer(),
         SizedBox(
           width: double.infinity,
           height: 56,
-          child: ElevatedButton(
+          child: OutlinedButton(
             onPressed: state.status == BookingStatus.loading ? null : _submitBooking,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.auburn500,
-              foregroundColor: AppColors.ivory50,
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: isDark ? AppColors.auburn300 : AppColors.auburn500, width: 2),
+              foregroundColor: isDark ? AppColors.auburn300 : AppColors.auburn500,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
             child: state.status == BookingStatus.loading
-                ? const SizedBox(
+                ? SizedBox(
                     width: 24,
                     height: 24,
                     child: CircularProgressIndicator(
-                      color: AppColors.ivory50,
+                      color: isDark ? AppColors.auburn300 : AppColors.auburn500,
                       strokeWidth: 2,
                     ),
                   )
@@ -159,6 +159,27 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
                     "Send Info & Pay Offline",
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
+          ),
+        ),
+        const Spacer(),
+        SizedBox(
+          width: double.infinity,
+          height: 56,
+          child: ElevatedButton(
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const PaymentScreen()));
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark ? AppColors.auburn300 : AppColors.auburn500,
+              foregroundColor: isDark ? AppColors.ink900 : AppColors.ivory50,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: const Text(
+              "Continue to Online Payment",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ),
         ),
       ],

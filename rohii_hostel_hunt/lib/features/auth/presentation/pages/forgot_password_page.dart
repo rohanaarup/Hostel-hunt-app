@@ -226,7 +226,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
           content: Text(response.message.isNotEmpty 
               ? response.message 
               : 'OTP sent to your email!'),
-          backgroundColor: AppColors.emerald500,
+          backgroundColor: AppColors.success,
         ),
       );
     } catch (e) {

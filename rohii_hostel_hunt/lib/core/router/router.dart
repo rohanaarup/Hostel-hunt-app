@@ -29,8 +29,12 @@ import 'package:rohii_hostel_hunt/features/auth/presentation/pages/landing_page.
 /// Every route path is identical to the original GetX setup.
 
 final GoRouter appRouter = GoRouter(
-  initialLocation: '/loading',
+  initialLocation: '/landing',
   routes: [
+    GoRoute(
+      path: '/',
+      redirect: (context, state) => '/landing',
+    ),
     GoRoute(
       path: '/landing',
       builder: (context, state) => const LandingPage(),
