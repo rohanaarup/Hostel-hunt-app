@@ -419,6 +419,79 @@ class _ProfileState extends ConsumerState<_ProfileContent> {
           ),
           const SizedBox(height: 32),
 
+          // ── Dashboard CTA banner ──────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: GestureDetector(
+              onTap: () => context.push('/dashboard'),
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isDark
+                        ? [const Color(0xFF3B2A2A), AppColors.ivory900]
+                        : [AppColors.auburn500, AppColors.auburn700],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.auburn500.withValues(alpha: isDark ? 0.2 : 0.35),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.ivory50.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(
+                        Icons.dashboard_rounded,
+                        color: AppColors.ivory50,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'My Dashboard',
+                            style: TextStyle(
+                              color: AppColors.ivory50,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            'Bookings, wishlist & activity at a glance',
+                            style: TextStyle(
+                              color: AppColors.ivory50.withValues(alpha: 0.75),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      color: AppColors.ivory50.withValues(alpha: 0.7),
+                      size: 16,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+
           // ── Layer 4: Recent Booking Activity ─────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),

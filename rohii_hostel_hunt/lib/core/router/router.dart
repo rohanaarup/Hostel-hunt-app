@@ -20,6 +20,7 @@ import 'package:rohii_hostel_hunt/features/payments/presentation/pages/payments_
 import 'package:rohii_hostel_hunt/features/support/presentation/pages/support_page.dart';
 import 'package:rohii_hostel_hunt/features/settings/presentation/pages/settings_page.dart';
 import 'package:rohii_hostel_hunt/features/auth/presentation/pages/landing_page.dart';
+import 'package:rohii_hostel_hunt/features/dashboard/screens/dashboard_screen.dart';
 
 /// ─────────────────────────────────────────────────────────
 /// Hostel Hunt — GoRouter Configuration
@@ -29,7 +30,7 @@ import 'package:rohii_hostel_hunt/features/auth/presentation/pages/landing_page.
 /// Every route path is identical to the original GetX setup.
 
 final GoRouter appRouter = GoRouter(
-  initialLocation: '/landing',
+  initialLocation: '/home',
   routes: [
     GoRoute(
       path: '/',
@@ -42,6 +43,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/home',
       builder: (context, state) => const Homepage(),
+    ),
+    GoRoute(
+      path: '/dashboard',
+      builder: (context, state) => const DashboardScreen(),
     ),
     GoRoute(
       path: '/loading',

@@ -257,6 +257,25 @@ class _HomepageState extends ConsumerState<Homepage> {
                 ),
                 const SizedBox(width: 10),
 
+                // Dashboard shortcut
+                GestureDetector(
+                  onTap: () => context.push('/dashboard'),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: primaryColor.withValues(alpha: 0.3), width: 0.8),
+                    ),
+                    child: Icon(
+                      Icons.dashboard_rounded,
+                      color: primaryColor,
+                      size: 20,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+
                 // Profile avatar
                 GestureDetector(
                   onTap: () => context.push('/profile'),
