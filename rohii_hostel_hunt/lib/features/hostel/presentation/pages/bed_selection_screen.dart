@@ -575,9 +575,8 @@ class _BedSelectionScreenState extends ConsumerState<BedSelectionScreen> {
                       CupertinoPageRoute(
                         builder: (_) => BookingSummaryScreen(
                           hostel: widget.hostel,
-                          floor: selectedFloor == 0 ? "Ground Floor" : "Floor $selectedFloor",
-                          room: selectedRoom!.roomNumber,
-                          bedLabel: "Bed $selectedBedId",
+                          room: selectedRoom!,
+                          bedNumber: selectedBedId!,
                         ),
                       ),
                     );

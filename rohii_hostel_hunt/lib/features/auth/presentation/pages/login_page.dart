@@ -13,7 +13,13 @@ import 'package:rohii_hostel_hunt/shared/widgets/auth/auth_gradient_button.dart'
 import 'package:rohii_hostel_hunt/shared/widgets/auth/decorative_auth_footer.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
-  const LoginPage({super.key});
+  /// When true, a successful login pops this page (returning `true` to the
+  /// caller) instead of navigating to '/home'. Used when login is triggered
+  /// mid-flow (e.g. from the booking screen) so the caller's state — and
+  /// nav stack — survives the login detour.
+  final bool popOnSuccess;
+
+  const LoginPage({super.key, this.popOnSuccess = false});
 
   @override
   ConsumerState<LoginPage> createState() => _LoginPageState();
@@ -175,7 +181,12 @@ class _LoginPageState extends ConsumerState<LoginPage>
         ),
       );
       await Future.delayed(const Duration(milliseconds: 500));
-      if (mounted) context.go('/home');
+      if (!mounted) return;
+      if (widget.popOnSuccess) {
+        Navigator.of(context).pop(true);
+      } else {
+        context.go('/home');
+      }
     } catch (e) {
       setState(() {
         _errorMessage = 'Login failed. Please try again.';
