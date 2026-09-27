@@ -113,6 +113,10 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
 
     final bookingId = bookingState.data!['id']?.toString();
     if (bookingId == null || bookingId.isEmpty) {
+      // bookingProvider's state is otherwise left at `success` here, which
+      // would make showOfflineSuccess evaluate true in build() even with
+      // _isOnlineFlow reset — reset() is what actually clears `success`.
+      ref.read(bookingProvider.notifier).reset();
       setState(() {
         _isOnlineFlow = false;
         _onlineError = 'Booking was created but no booking ID was returned.';
