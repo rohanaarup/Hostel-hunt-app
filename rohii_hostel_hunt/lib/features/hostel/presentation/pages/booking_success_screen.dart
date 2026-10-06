@@ -63,6 +63,20 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
     );
   }
 
+  // A SnackBar is shown alongside the inline error box because the inline
+  // box only renders inside _buildSummaryView — if bookingState.status is
+  // still 'success' from an earlier offline submission in this same screen
+  // session (e.g. the student declines the login prompt before _isOnlineFlow
+  // is ever set), showOfflineSuccess stays true and the WhatsApp success
+  // view would otherwise mask the error completely.
+  void _setOnlineError(String message) {
+    setState(() => _onlineError = message);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
+    );
+  }
+
   Future<void> _startOnlinePayment() async {
     setState(() => _onlineError = null);
 
@@ -79,7 +93,7 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
       );
       if (!mounted) return;
       if (loggedInNow != true) {
-        setState(() => _onlineError = 'Please log in to pay online.');
+        _setOnlineError('Please log in to pay online.');
         return;
       }
     }
@@ -104,10 +118,8 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
     final bookingState = ref.read(bookingProvider);
 
     if (bookingState.status != BookingStatus.success || bookingState.data == null) {
-      setState(() {
-        _isOnlineFlow = false;
-        _onlineError = bookingState.errorMessage ?? 'Failed to create booking. Please try again.';
-      });
+      setState(() => _isOnlineFlow = false);
+      _setOnlineError(bookingState.errorMessage ?? 'Failed to create booking. Please try again.');
       return;
     }
 
@@ -117,10 +129,8 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
       // would make showOfflineSuccess evaluate true in build() even with
       // _isOnlineFlow reset — reset() is what actually clears `success`.
       ref.read(bookingProvider.notifier).reset();
-      setState(() {
-        _isOnlineFlow = false;
-        _onlineError = 'Booking was created but no booking ID was returned.';
-      });
+      setState(() => _isOnlineFlow = false);
+      _setOnlineError('Booking was created but no booking ID was returned.');
       return;
     }
 

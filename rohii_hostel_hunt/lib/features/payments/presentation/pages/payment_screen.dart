@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -31,9 +32,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   String _selectedMethod = 'gpay';
 
+  // razorpay_flutter and UPI deep-link launching are mobile-only (Android/iOS
+  // platform channels) — there is no web implementation, so neither must run
+  // there. Checked once at construction rather than per-call.
+  bool get _unsupportedPlatform => kIsWeb;
+
   @override
   void initState() {
     super.initState();
+    if (_unsupportedPlatform) return;
     _razorpay = Razorpay();
     _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _onCardSuccess);
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _onCardError);
@@ -43,7 +50,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   @override
   void dispose() {
-    _razorpay.clear();
+    if (!_unsupportedPlatform) _razorpay.clear();
     super.dispose();
   }
 
@@ -215,11 +222,43 @@ class _PaymentScreenState extends State<PaymentScreen> {
         ),
       ),
       body: SafeArea(
-        child: _loadingOrder
-            ? const Center(child: CircularProgressIndicator(color: Colors.orange))
-            : _orderError != null
-                ? _buildOrderError(isDark)
-                : _buildMethodPicker(isDark),
+        child: _unsupportedPlatform
+            ? _buildUnsupportedPlatform(isDark)
+            : _loadingOrder
+                ? const Center(child: CircularProgressIndicator(color: Colors.orange))
+                : _orderError != null
+                    ? _buildOrderError(isDark)
+                    : _buildMethodPicker(isDark),
+      ),
+    );
+  }
+
+  Widget _buildUnsupportedPlatform(bool isDark) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.phone_android_rounded, color: AppColors.error, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              "Online payment is only available in the mobile app.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppColors.ivory50 : AppColors.ink900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Please open Hostel Hunt on Android or iOS to pay online, or choose Pay Offline instead.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: isDark ? AppColors.ivory300 : AppColors.ink700),
+            ),
+          ],
+        ),
       ),
     );
   }
