@@ -42,6 +42,7 @@ class BookingNotifier extends StateNotifier<BookingState> {
     required String checkInDate,
     String studentName = '',
     String studentPhone = '',
+    String paymentMode = 'offline',
   }) async {
     state = state.copyWith(status: BookingStatus.loading, errorMessage: null);
 
@@ -55,7 +56,7 @@ class BookingNotifier extends StateNotifier<BookingState> {
         'check_in_date': checkInDate,
         'student_name': studentName,
         'student_phone': studentPhone,
-        'payment_mode': 'offline',
+        'payment_mode': paymentMode,
       };
       
       if (roomId.isNotEmpty) {

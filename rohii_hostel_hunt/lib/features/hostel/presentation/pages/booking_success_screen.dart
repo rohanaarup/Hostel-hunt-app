@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:rohii_hostel_hunt/core/network/api_service.dart';
 import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
+import 'package:rohii_hostel_hunt/features/hostel/domain/models/room.dart';
 import 'package:rohii_hostel_hunt/features/hostel/presentation/providers/booking_provider.dart';
 import 'package:rohii_hostel_hunt/features/profile/presentation/providers/user_provider.dart';
+import 'package:rohii_hostel_hunt/features/auth/presentation/pages/login_page.dart';
 import 'package:rohii_hostel_hunt/features/payments/presentation/pages/payment_screen.dart';
+
 class BookingSummaryScreen extends ConsumerStatefulWidget {
   final Hostel hostel;
-  final String floor;
-  final String room;
-  final String bedLabel;
+  final Room room;
+  final String bedNumber; // raw numeric id, e.g. "3" — never "Bed 3"
 
   const BookingSummaryScreen({
     super.key,
     required this.hostel,
-    required this.floor,
     required this.room,
-    required this.bedLabel,
+    required this.bedNumber,
   });
 
   @override
@@ -25,6 +27,18 @@ class BookingSummaryScreen extends ConsumerStatefulWidget {
 }
 
 class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
+  final ApiService _api = ApiService();
+
+  // True while the "Continue to Online Payment" path is driving the shared
+  // bookingProvider — keeps its success state from popping the offline
+  // WhatsApp success view underneath the online payment screens.
+  bool _isOnlineFlow = false;
+  String? _onlineError;
+
+  String get _floorLabel => widget.room.floorNumber == 0 ? "Ground Floor" : "Floor ${widget.room.floorNumber}";
+  String get _bedLabel => "Bed ${widget.bedNumber}";
+  String get _roomLabel => widget.room.roomName.isNotEmpty ? widget.room.roomName : widget.room.roomNumber;
+
   @override
   void initState() {
     super.initState();
@@ -38,20 +52,105 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
     final userProfile = ref.read(userProvider).valueOrNull;
     ref.read(bookingProvider.notifier).submitBooking(
       hostelId: widget.hostel.id,
-      roomId: '',
-      roomName: "Room ${widget.room}",
-      floorNumber: widget.floor,
-      roomNumber: widget.room,
-      bedNumber: widget.bedLabel,
+      roomId: widget.room.roomId,
+      roomName: _roomLabel,
+      floorNumber: widget.room.floorNumber.toString(),
+      roomNumber: widget.room.roomNumber,
+      bedNumber: widget.bedNumber,
       checkInDate: DateTime.now().toIso8601String().split('T')[0],
       studentName: userProfile?.name ?? '',
       studentPhone: userProfile?.phone ?? '',
     );
   }
 
+  // A SnackBar is shown alongside the inline error box because the inline
+  // box only renders inside _buildSummaryView — if bookingState.status is
+  // still 'success' from an earlier offline submission in this same screen
+  // session (e.g. the student declines the login prompt before _isOnlineFlow
+  // is ever set), showOfflineSuccess stays true and the WhatsApp success
+  // view would otherwise mask the error completely.
+  void _setOnlineError(String message) {
+    setState(() => _onlineError = message);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
+    );
+  }
+
+  Future<void> _startOnlinePayment() async {
+    setState(() => _onlineError = null);
+
+    // Booking creation only auto-links `student` when the request is
+    // authenticated — an anonymous booking can never be attached to a user
+    // afterwards, so login must happen before submitBooking(), not after.
+    final loggedIn = await _api.isLoggedIn();
+    if (!mounted) return;
+
+    if (!loggedIn) {
+      final loggedInNow = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginPage(popOnSuccess: true)),
+      );
+      if (!mounted) return;
+      if (loggedInNow != true) {
+        _setOnlineError('Please log in to pay online.');
+        return;
+      }
+    }
+
+    setState(() => _isOnlineFlow = true);
+
+    final userProfile = ref.read(userProvider).valueOrNull;
+    await ref.read(bookingProvider.notifier).submitBooking(
+      hostelId: widget.hostel.id,
+      roomId: widget.room.roomId,
+      roomName: _roomLabel,
+      floorNumber: widget.room.floorNumber.toString(),
+      roomNumber: widget.room.roomNumber,
+      bedNumber: widget.bedNumber,
+      checkInDate: DateTime.now().toIso8601String().split('T')[0],
+      studentName: userProfile?.name ?? '',
+      studentPhone: userProfile?.phone ?? '',
+      paymentMode: 'online',
+    );
+
+    if (!mounted) return;
+    final bookingState = ref.read(bookingProvider);
+
+    if (bookingState.status != BookingStatus.success || bookingState.data == null) {
+      setState(() => _isOnlineFlow = false);
+      _setOnlineError(bookingState.errorMessage ?? 'Failed to create booking. Please try again.');
+      return;
+    }
+
+    final bookingId = bookingState.data!['id']?.toString();
+    if (bookingId == null || bookingId.isEmpty) {
+      // bookingProvider's state is otherwise left at `success` here, which
+      // would make showOfflineSuccess evaluate true in build() even with
+      // _isOnlineFlow reset — reset() is what actually clears `success`.
+      ref.read(bookingProvider.notifier).reset();
+      setState(() => _isOnlineFlow = false);
+      _setOnlineError('Booking was created but no booking ID was returned.');
+      return;
+    }
+
+    // Booking is created — reset the shared provider so a later return to
+    // this screen (e.g. the student backs out of payment) shows a clean
+    // summary view rather than a stuck "success"/"loading" state.
+    ref.read(bookingProvider.notifier).reset();
+
+    if (!mounted) return;
+    setState(() => _isOnlineFlow = false);
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => PaymentScreen(bookingId: bookingId)),
+    );
+  }
+
   Future<void> _openWhatsApp() async {
     final phone = widget.hostel.contactPhone;
-    final message = "Hello, I just requested a booking for ${widget.bedLabel} in Room ${widget.room} at ${widget.hostel.name} via Hostel Hunt. I'd like to pay offline.";
+    final message = "Hello, I just requested a booking for $_bedLabel in Room $_roomLabel at ${widget.hostel.name} via Hostel Hunt. I'd like to pay offline.";
     final uri = Uri.parse("https://wa.me/$phone?text=${Uri.encodeComponent(message)}");
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
@@ -62,6 +161,7 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bookingState = ref.watch(bookingProvider);
+    final showOfflineSuccess = bookingState.status == BookingStatus.success && !_isOnlineFlow;
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.ink900 : AppColors.ivory50,
@@ -79,7 +179,7 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20),
-          child: bookingState.status == BookingStatus.success
+          child: showOfflineSuccess
               ? _buildSuccessView(isDark)
               : _buildSummaryView(isDark, bookingState),
         ),
@@ -88,6 +188,8 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
   }
 
   Widget _buildSummaryView(bool isDark, BookingState state) {
+    final isBusy = state.status == BookingStatus.loading;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -110,16 +212,16 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              _buildDetailRow("Floor", widget.floor, isDark),
+              _buildDetailRow("Floor", _floorLabel, isDark),
               const SizedBox(height: 8),
-              _buildDetailRow("Room", widget.room, isDark),
+              _buildDetailRow("Room", _roomLabel, isDark),
               const SizedBox(height: 8),
-              _buildDetailRow("Bed", widget.bedLabel, isDark),
+              _buildDetailRow("Bed", _bedLabel, isDark),
             ],
           ),
         ),
         const SizedBox(height: 24),
-        if (state.status == BookingStatus.error) ...[
+        if (state.status == BookingStatus.error && !_isOnlineFlow) ...[
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -134,11 +236,23 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
           ),
           const SizedBox(height: 24),
         ],
+        if (_onlineError != null) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red.withOpacity(0.5)),
+            ),
+            child: Text(_onlineError!, style: const TextStyle(color: Colors.red)),
+          ),
+          const SizedBox(height: 24),
+        ],
         SizedBox(
           width: double.infinity,
           height: 56,
           child: OutlinedButton(
-            onPressed: state.status == BookingStatus.loading ? null : _submitBooking,
+            onPressed: isBusy ? null : _submitBooking,
             style: OutlinedButton.styleFrom(
               side: BorderSide(color: isDark ? AppColors.auburn300 : AppColors.auburn500, width: 2),
               foregroundColor: isDark ? AppColors.auburn300 : AppColors.auburn500,
@@ -146,7 +260,7 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            child: state.status == BookingStatus.loading
+            child: (isBusy && !_isOnlineFlow)
                 ? SizedBox(
                     width: 24,
                     height: 24,
@@ -166,9 +280,7 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
           width: double.infinity,
           height: 56,
           child: ElevatedButton(
-            onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const PaymentScreen()));
-            },
+            onPressed: isBusy ? null : _startOnlinePayment,
             style: ElevatedButton.styleFrom(
               backgroundColor: isDark ? AppColors.auburn300 : AppColors.auburn500,
               foregroundColor: isDark ? AppColors.ink900 : AppColors.ivory50,
@@ -176,10 +288,19 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            child: const Text(
-              "Continue to Online Payment",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
+            child: (isBusy && _isOnlineFlow)
+                ? SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: isDark ? AppColors.ink900 : AppColors.ivory50,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text(
+                    "Continue to Online Payment",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
           ),
         ),
       ],
@@ -239,7 +360,7 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
         ),
         const SizedBox(height: 16),
         Text(
-          "Your request for ${widget.bedLabel} in Room ${widget.room} (${widget.floor}) has been submitted to the hostel owner.",
+          "Your request for $_bedLabel in Room $_roomLabel ($_floorLabel) has been submitted to the hostel owner.",
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 16,

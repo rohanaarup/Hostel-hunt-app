@@ -28,9 +28,16 @@ class ApiService {
   // Configuration
   // ─────────────────────────────────────────────────────────────────────────
 
-  // Set to false to use the production Render backend (recommended)
-  // Set to true only for local development with Django dev server
-  static bool useLocalBackend = true;
+  // Defaults to the deployed Render backend so every normal run/build
+  // resolves to a reachable server. Razorpay's webhook is registered against
+  // the Render URL and cannot reach a local LAN IP, so payment testing on a
+  // real device or emulator specifically requires this to stay false.
+  // Override for local Django dev server testing with:
+  //   flutter run --dart-define=USE_LOCAL_BACKEND=true
+  static const bool useLocalBackend = bool.fromEnvironment(
+    'USE_LOCAL_BACKEND',
+    defaultValue: false,
+  );
 
   /// Platform-aware base URL:
   ///   Flutter Web  → http://127.0.0.1:8001  (localhost, same machine)
