@@ -1,141 +1,37 @@
-# AGENTS.md
+# Hostel Hunt app
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+Flutter mobile app for finding PG and hostel accommodation in Hyderabad. It talks to the Django API in the separate backend repo (`hostel-hunt-admin-pannel`, see its `AGENTS.md`).
+Everything below was checked against the code or run on 2026-10-10; things not run are listed under "Not verified".
 
-## Project Overview
-
-**Hostel Hunt** — A Flutter mobile app for finding PG/hostel accommodations. The project has two distinct parts:
-
-| Directory | Technology | Purpose |
-|-----------|-----------|---------|
-| `rohii_hostel_hunt/` | Flutter (Dart) | Mobile app frontend |
-| `backend/` | Django (Python) | REST API backend |
-
-## Commands
-
-### Flutter App
-```bash
-cd rohii_hostel_hunt
-
-# Run the app
-flutter run
-
-# Build debug APK
-flutter build apk --debug
-
-# Run on specific device
-flutter run -d <device_id>
-```
-
-### Django Backend
-```bash
-cd backend
-
-# Run migrations
-python manage.py migrate
-
-# Start development server (port 8000)
-python manage.py runserver 0.0.0.0:8000
-
-# Create superuser
-python manage.py createsuperuser
-```
+## Layout
+- `rohii_hostel_hunt/` – the Flutter project (package `rohii_hostel_hunt`, Dart SDK `^3.10.4`). Run all Flutter commands from this folder.
+- Repo root also holds this file, `claude.md`, and a few loose files (`Rohii Neon DB.session.sql`, an image) that are not part of the app.
 
 ## Architecture
+- State: Riverpod 2.x (`flutter_riverpod`). Routing: `go_router` (`lib/core/router/router.dart`). HTTP: the `http` package. Tokens: `shared_preferences`.
+- `lib/features/<name>/` holds `auth, booking, dashboard, home, hostel, location, payments, profile, search, settings, support, wishlist`. `lib/core/` has `network`, `router`, `theme`, `services`, `constants`, `utils`; `lib/shared/` has common widgets and helpers.
+- `lib/core/network/api_service.dart` is the only HTTP client. It stores the access and refresh tokens, and on a 401 refreshes the access token and retries the request once.
+- Base URL: by default the deployed backend, `https://hostel-hunt-backend.onrender.com/api/v1`. Build or run with `--dart-define=USE_LOCAL_BACKEND=true` to use the local host and port constants in `api_service.dart` (keep them equal to the port Django runs on).
+- Payments: `razorpay_flutter`; the backend creates and verifies the Razorpay order. Do not change this flow without a task that says so.
 
-### Frontend (Flutter)
-
-**Entry point**: [main.dart](rohii_hostel_hunt/lib/main.dart)
-
-**State Management**: Uses two approaches:
-- **GetX** — Navigation and routing via `GetMaterialApp` and `GetPage` routes
-- **Provider** — `ChangeNotifier` for app-wide state (`LocationProvider`, `SearchProvider`)
-- **ValueNotifier** — Simple reactive state (theme toggle in `notifiers.dart`)
-
-**Central API Client**: [api_service.dart](rohii_hostel_hunt/lib/services/api_service.dart)
-- Singleton HTTP client using `package:http`
-- Base URL: `http://10.0.2.2:8000/api` (Android emulator → host machine)
-- Handles JWT token storage, injection, and automatic refresh on 401
-- All API calls must go through this service
-
-**Key Providers**:
-- `LocationProvider` — GPS location detection, saved addresses
-- `SearchProvider` — Real-time search with 300ms debounce
-
-**Navigation**: GetX routes defined in `main.dart` `getPages` list. Routes: `/home`, `/login`, `/signup`, `/profile`, `/search`, `/location`, etc.
-
-### Backend (Django)
-
-**Settings**: [settings.py](backend/rohii_backend/settings.py)
-- JWT auth via `rest_framework_simplejwt`
-- Connected to **Railway Postgres** for production database (shared with Admin Panel).
-- CORS enabled for all origins (`CORS_ALLOW_ALL_ORIGINS = True`)
-- `AUTH_USER_MODEL = 'owners.Owner'` (Mapped to `owners` table using custom app label)
-
-> [!CAUTION]
-> ### CRITICAL DATABASE RULES FOR AI AGENTS
-> The Flutter App backend is deeply synchronized with the Admin Panel's existing **Railway Postgres Database**. You must **NEVER** alter or blindly regenerate the following files, as doing so will break the database connection, crash migrations, or cause data loss:
-> 
-> 1. **`backend/accounts/apps.py`**: Contains `label = 'owners'`. This maps the `accounts` app to the `owners` database table. Removing this will break the entire backend.
-> 2. **`backend/rohii_backend/settings.py`**: In `INSTALLED_APPS`, `accounts.apps.AccountsConfig` MUST appear *before* `rest_framework_simplejwt.token_blacklist` to prevent lazy reference resolution errors.
-> 3. **`backend/accounts/models.py`**: The `Owner` model uses `owner_id` (UUID), `db_table = 'owners'`, and overrides M2M tables (`owners_groups`, `owners_user_permissions`). Do not change these column/table names or primary key types.
-> 4. **All Migration Files (`backend/*/migrations/*.py`)**: The migration files (especially `owners/migrations/0001_initial.py` and `0002_otprecord_verification_token.py`) are carefully synced to match the `django_migrations` history in Railway. **DO NOT** delete them or run `makemigrations` to regenerate initial schemas, as running `migrate` will attempt to recreate tables that already exist in Railway and crash the system.
-
-**Installed Apps**:
-- `accounts` — User model, registration, login, logout
-- `otp_auth` — OTP generation and email verification
-- `hostels` — Hostel listings CRUD
-- `bookings` — Booking management
-- `reviews` — Hostel reviews and ratings
-
-**API Authentication**: All protected endpoints require `Authorization: Bearer <access_token>` header. Access tokens expire in 1 day, refresh tokens in 30 days.
-
-**Key Endpoints**:
+## Commands (run from `rohii_hostel_hunt/`)
 ```
-POST /api/auth/register/    — Create account (requires OTP verified first)
-POST /api/auth/login/       — Login, returns JWT tokens
-POST /api/auth/logout/      — Blacklist refresh token
-GET  /api/auth/me/          — Get authenticated user profile
-POST /api/otp/send/         — Send OTP to email
-POST /api/otp/verify/       — Verify OTP code
+flutter pub get
+flutter analyze      # 0 errors, 11 warnings, 53 infos at this commit
+flutter test         # 1 test, currently FAILS (see Known gaps)
 ```
+Run on a device or emulator: `flutter run` (add `--dart-define=USE_LOCAL_BACKEND=true` for a local backend).
 
-### Data Flow
+## Rules for changes
+- Measure first. Keep changes small and in the existing style.
+- The backend deploys before the app. The app must tolerate missing or extra fields in API responses.
+- Errors must be visible: no empty `catch` blocks, and screens show the HTTP status and the server's reason.
+- Never print, log or commit secrets. No keys belong in this repo.
 
-```
-Flutter App                          Django Backend
-     │                                       │
-     ├──► ApiService (HTTP client) ─────────►► Views (parse requests)
-     │                                       │
-     ├──► Provider/ChangeNotifier ◄───◄───► JSON Response
-     │        (app state)                    
-     │                                    
-     └──► GetX Navigation ◄──────────► pages/
-          (screen routing)                          
-```
+## Known gaps
+- `test/widget_test.dart` is Flutter's default counter template; it does not match this app and fails. There are no other tests.
+- Android `applicationId` is `com.example.rohii_hostel_hunt` (`android/app/build.gradle*`). Play Console is expected to reject `com.example.*` IDs, so choose a real ID before the first Play Store upload (an ID cannot be changed after publishing).
+- `flutter analyze` reports 11 warnings (unused fields, variables and one import) and many deprecation infos such as `withOpacity`.
 
-## Important Patterns
-
-### Adding a New API Endpoint
-
-1. Add URL to Django `urls.py` in the appropriate app
-2. Add view function in `views.py`
-3. In Flutter: add method to `ApiService` class (use `authGet` or `authPost`)
-4. Call from UI via Provider or GetX controller
-
-### Firebase Status
-
-Firebase packages (`firebase_core`, `firebase_auth`, `cloud_firestore`) are declared in `pubspec.yaml` but **not actively used**. Firebase is initialized in `main.dart` but no Firebase Auth calls exist in the codebase. All auth flows currently use Django JWT.
-
-### Hostel Data
-
-The `Hostel` model in [hostel.dart](rohii_hostel_hunt/lib/models/hostel.dart) serves as the **single source of truth** for hostel data. It contains hardcoded `sampleHostels` list for development. Future integration will fetch from `/api/hostels/` endpoint.
-
-## File Conventions
-
-- Pages/screens go in `lib/pages/`
-- Reusable widgets in `lib/widgets/`
-- Business logic and state in `lib/services/`
-- Data models in `lib/models/`
-- Navigation utilities in `lib/utils/`
-- Backend apps follow Django convention: `models.py`, `views.py`, `serializers.py`, `urls.py`, `services.py`
+## Not verified
+- `flutter run`, release builds and signing, and behaviour on a physical device.
