@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
+import 'package:rohii_hostel_hunt/core/observability/sentry_setup.dart';
 import 'package:rohii_hostel_hunt/core/router/router.dart';
 import 'package:rohii_hostel_hunt/core/theme/theme_provider.dart';
 import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 // Using Django JWT auth - no Firebase needed
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   ApiService.setUnauthorizedHandler(() {
     appRouter.go('/login');
   });
-  runApp(const ProviderScope(child: MyApp()));
+  // Starts error reporting (if SENTRY_DSN is set), installs the global error
+  // handlers, then runs the app.
+  await bootstrapObservability(
+    () => runApp(const ProviderScope(child: MyApp())),
+  );
 }
 
 class MyApp extends ConsumerWidget {

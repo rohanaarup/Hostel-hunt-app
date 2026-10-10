@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:rohii_hostel_hunt/core/observability/debug_log.dart';
+import 'package:rohii_hostel_hunt/core/observability/error_reporter.dart';
+import 'package:rohii_hostel_hunt/core/observability/privacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Central HTTP client for all Django API calls.
@@ -38,11 +41,15 @@ class ApiService {
     'USE_LOCAL_BACKEND',
     defaultValue: false,
   );
+  static const String localApiHost = String.fromEnvironment(
+    'LOCAL_API_HOST',
+    defaultValue: '192.168.1.51',
+  );
 
   /// Platform-aware base URL:
-  ///   Flutter Web  → http://127.0.0.1:8001  (localhost, same machine)
-  ///   Android emu  → http://10.0.2.2:8001   (emulator alias for host)
-  ///   iOS sim/dev  → http://localhost:8001
+  ///   Flutter Web  → http://127.0.0.1:8000  (localhost, same machine)
+  ///   Android      → http://LOCAL_API_HOST:8000
+  ///   iOS sim/dev  → http://localhost:8000
   ///   Production   → https://rohii-backend.onrender.com/api
   static String get baseUrl {
     if (!useLocalBackend) {
@@ -51,12 +58,12 @@ class ApiService {
     }
 
     if (kIsWeb) {
-      return 'http://127.0.0.1:8001/api/v1';
+      return 'http://127.0.0.1:8000/api/v1';
     }
     if (Platform.isAndroid) {
-      return 'http://192.168.0.107:8001/api/v1';
+      return 'http://$localApiHost:8000/api/v1';
     }
-    return 'http://localhost:8001/api/v1';
+    return 'http://localhost:8000/api/v1';
   }
 
   static const Duration _timeout = Duration(seconds: 60);
@@ -103,6 +110,19 @@ class ApiService {
   // HTTP Helpers
   // ─────────────────────────────────────────────────────────────────────────
 
+  /// Leaves a breadcrumb for a failed call: method, route template and status
+  /// only (status 0 = no response: timeout or network failure). Never the
+  /// query string, headers or any body.
+  static void _crumb(String method, String path, int status) {
+    if (status != 0 && status < 400) return;
+    final route = routeTemplate(path);
+    errorReporter.breadcrumb(
+      category: 'api',
+      message: '$method $route -> $status',
+      data: {'method': method, 'route': route, 'status': status},
+    );
+  }
+
   Map<String, String> _headers({String? accessToken}) {
     final headers = <String, String>{
       'Content-Type': 'application/json',
@@ -124,20 +144,23 @@ class ApiService {
             body: jsonEncode(body),
           )
           .timeout(_timeout);
-      return ApiResponse.fromResponse(response);
+      final result = ApiResponse.fromResponse(response);
+      _crumb('POST', path, result.statusCode);
+      return result;
     } on TimeoutException {
+      _crumb('POST', path, 0);
       return ApiResponse.timeoutError();
     } catch (e) {
-      debugPrint('API Error (post): $e');
+      debugLog('API Error (post): ${e.runtimeType}');
+      _crumb('POST', path, 0);
       return ApiResponse.networkError();
     }
   }
 
   /// Authenticated POST — injects JWT Bearer token, retries once on 401
   Future<ApiResponse> authPost(String path, Map<String, dynamic> body) async {
-    return _authenticatedRequest(() async {
+    return _authenticatedRequest('POST', path, () async {
       final token = await getAccessToken();
-      debugPrint('[API] authPost $path | Token: ${token != null ? "present" : "MISSING"}');
       return http.post(
         Uri.parse('$baseUrl$path'),
         headers: _headers(accessToken: token),
@@ -151,9 +174,8 @@ class ApiService {
     String path, {
     Map<String, String>? queryParams,
   }) async {
-    return _authenticatedRequest(() async {
+    return _authenticatedRequest('GET', path, () async {
       final token = await getAccessToken();
-      debugPrint('[API] authGet $path | Token: ${token != null ? "present" : "MISSING"}');
       final uri = Uri.parse(
         '$baseUrl$path',
       ).replace(queryParameters: queryParams);
@@ -163,7 +185,7 @@ class ApiService {
 
   /// Authenticated PATCH — sends JSON body, retries once on 401
   Future<ApiResponse> authPatch(String path, Map<String, dynamic> body) async {
-    return _authenticatedRequest(() async {
+    return _authenticatedRequest('PATCH', path, () async {
       final token = await getAccessToken();
       return http.patch(
         Uri.parse('$baseUrl$path'),
@@ -190,19 +212,25 @@ class ApiService {
           : MediaType('image', 'jpeg');
       final request = http.MultipartRequest('POST', uri)
         ..headers['Authorization'] = 'Bearer $token'
-        ..files.add(http.MultipartFile.fromBytes(
-          fieldName,
-          bytes,
-          filename: filename,
-          contentType: contentType,
-        ));
+        ..files.add(
+          http.MultipartFile.fromBytes(
+            fieldName,
+            bytes,
+            filename: filename,
+            contentType: contentType,
+          ),
+        );
       final streamed = await request.send().timeout(_timeout);
       final response = await http.Response.fromStream(streamed);
-      return ApiResponse.fromResponse(response);
+      final result = ApiResponse.fromResponse(response);
+      _crumb('POST', path, result.statusCode);
+      return result;
     } on TimeoutException {
+      _crumb('POST', path, 0);
       return ApiResponse.timeoutError();
     } catch (e) {
-      debugPrint('Multipart upload error: $e');
+      debugLog('Multipart upload error: ${e.runtimeType}');
+      _crumb('POST', path, 0);
       return ApiResponse.networkError();
     }
   }
@@ -221,11 +249,15 @@ class ApiService {
       final response = await http
           .get(uri, headers: _headers())
           .timeout(_timeout);
-      return RawApiResponse.fromResponse(response);
+      final result = RawApiResponse.fromResponse(response);
+      _crumb('GET', path, result.statusCode);
+      return result;
     } on TimeoutException {
+      _crumb('GET', path, 0);
       return RawApiResponse.timeoutError();
     } catch (e) {
-      debugPrint('API Error (getRaw): $e');
+      debugLog('API Error (getRaw): ${e.runtimeType}');
+      _crumb('GET', path, 0);
       return RawApiResponse.networkError();
     }
   }
@@ -236,9 +268,8 @@ class ApiService {
     String path, {
     Map<String, String>? queryParams,
   }) async {
-    return _authenticatedRawRequest(() async {
+    return _authenticatedRawRequest('GET', path, () async {
       final token = await getAccessToken();
-      debugPrint('[API] authGetRaw $path | Token: ${token != null ? "present" : "MISSING"}');
       final uri = Uri.parse(
         '$baseUrl$path',
       ).replace(queryParameters: queryParams);
@@ -252,9 +283,8 @@ class ApiService {
     String path,
     Map<String, dynamic> body,
   ) async {
-    return _authenticatedRawRequest(() async {
+    return _authenticatedRawRequest('POST', path, () async {
       final token = await getAccessToken();
-      debugPrint('[API] authPostRaw $path | Token: ${token != null ? "present" : "MISSING"}');
       return http.post(
         Uri.parse('$baseUrl$path'),
         headers: _headers(accessToken: token),
@@ -265,6 +295,8 @@ class ApiService {
 
   /// Wraps an authenticated request with automatic token refresh on 401
   Future<ApiResponse> _authenticatedRequest(
+    String method,
+    String path,
     Future<http.Response> Function() request,
   ) async {
     try {
@@ -277,6 +309,7 @@ class ApiService {
           response = await request().timeout(_timeout);
         } else {
           await _handleUnauthorized();
+          _crumb(method, path, 401);
           return ApiResponse(
             success: false,
             message: 'Session expired. Please login again.',
@@ -285,10 +318,15 @@ class ApiService {
         }
       }
 
-      return ApiResponse.fromResponse(response);
+      final result = ApiResponse.fromResponse(response);
+      _crumb(method, path, result.statusCode);
+      return result;
     } on TimeoutException {
+      _crumb(method, path, 0);
       return ApiResponse.timeoutError();
-    } catch (_) {
+    } catch (e) {
+      debugLog('API Error ($method): ${e.runtimeType}');
+      _crumb(method, path, 0);
       return ApiResponse.networkError();
     }
   }
@@ -296,6 +334,8 @@ class ApiService {
   /// Wraps an authenticated request with automatic token refresh on 401.
   /// Returns raw decoded JSON instead of ApiResponse envelope.
   Future<RawApiResponse> _authenticatedRawRequest(
+    String method,
+    String path,
     Future<http.Response> Function() request,
   ) async {
     try {
@@ -307,6 +347,7 @@ class ApiService {
           response = await request().timeout(_timeout);
         } else {
           await _handleUnauthorized();
+          _crumb(method, path, 401);
           return const RawApiResponse(
             success: false,
             message: 'Session expired. Please login again.',
@@ -315,10 +356,15 @@ class ApiService {
         }
       }
 
-      return RawApiResponse.fromResponse(response);
+      final result = RawApiResponse.fromResponse(response);
+      _crumb(method, path, result.statusCode);
+      return result;
     } on TimeoutException {
+      _crumb(method, path, 0);
       return RawApiResponse.timeoutError();
-    } catch (_) {
+    } catch (e) {
+      debugLog('API Error ($method): ${e.runtimeType}');
+      _crumb(method, path, 0);
       return RawApiResponse.networkError();
     }
   }
@@ -350,14 +396,15 @@ class ApiService {
           return true;
         }
       }
+      _crumb('POST', '/auth/token/refresh/', response.statusCode);
       return false;
     } catch (e) {
-      debugPrint('API Error (_refreshToken): $e');
+      debugLog('API Error (_refreshToken): ${e.runtimeType}');
+      _crumb('POST', '/auth/token/refresh/', 0);
       return false;
     }
   }
 }
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Response Model
@@ -379,10 +426,10 @@ class ApiResponse {
   factory ApiResponse.fromResponse(http.Response response) {
     try {
       final body = jsonDecode(response.body) as Map<String, dynamic>;
-      
+
       bool isSuccess = body['success'] as bool? ?? (response.statusCode < 400);
       String msg = body['message'] as String? ?? '';
-      
+
       if (!isSuccess && body.containsKey('errors') && body['errors'] is Map) {
         final errors = body['errors'] as Map;
         if (errors.isNotEmpty) {
@@ -395,7 +442,7 @@ class ApiResponse {
           }
         }
       }
-      
+
       return ApiResponse(
         success: isSuccess,
         message: msg,
@@ -403,7 +450,7 @@ class ApiResponse {
         statusCode: response.statusCode,
       );
     } catch (e) {
-      debugPrint('API Error (ApiResponse.fromResponse): $e');
+      debugLog('API Error (ApiResponse.fromResponse): ${e.runtimeType}');
       return ApiResponse(
         success: false,
         message: 'Unexpected server response.',
@@ -456,10 +503,10 @@ class RawApiResponse {
         statusCode: response.statusCode,
       );
     } catch (e) {
-      debugPrint('API Error (RawApiResponse.fromResponse): $e');
-      debugPrint('URL: ${response.request?.url}');
-      debugPrint('Status Code: ${response.statusCode}');
-      debugPrint('Response Body (first 200 chars): ${response.body.length > 200 ? response.body.substring(0, 200) : response.body}');
+      // Status only: the URL carries query strings and the body can hold personal data.
+      debugLog(
+        'API Error (RawApiResponse.fromResponse): ${e.runtimeType}, status ${response.statusCode}',
+      );
       return RawApiResponse(
         success: false,
         message: 'Unexpected server response.',
