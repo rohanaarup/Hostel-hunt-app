@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:rohii_hostel_hunt/features/location/domain/models/location_model.dart';
+import 'package:rohii_hostel_hunt/core/observability/debug_log.dart';
+import 'package:rohii_hostel_hunt/core/observability/error_reporter.dart';
 
 /// Global location state for Hostel Hunt.
 ///
@@ -55,7 +57,7 @@ class LocationProvider extends ChangeNotifier {
 
   // ── Detect current GPS location ──
   Future<void> detectCurrentLocation() async {
-    debugPrint('[LocationProvider] detectCurrentLocation() called');
+    debugLog('[LocationProvider] detectCurrentLocation() called');
     _isDetectingLocation = true;
     _locationError = null;
     notifyListeners();
@@ -63,7 +65,7 @@ class LocationProvider extends ChangeNotifier {
     try {
       // Check if location services are enabled
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      debugPrint('[LocationProvider] Location services enabled: $serviceEnabled');
+      debugLog('[LocationProvider] Location services enabled: $serviceEnabled');
       if (!serviceEnabled) {
         _locationError = 'Location services are disabled';
         _isDetectingLocation = false;
@@ -73,10 +75,10 @@ class LocationProvider extends ChangeNotifier {
 
       // Check / request permission
       var permission = await Geolocator.checkPermission();
-      debugPrint('[LocationProvider] Current permission: $permission');
+      debugLog('[LocationProvider] Current permission: $permission');
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        debugPrint('[LocationProvider] Requested permission, got: $permission');
+        debugLog('[LocationProvider] Requested permission, got: $permission');
         if (permission == LocationPermission.denied) {
           _locationError = 'Location permission denied';
           _isDetectingLocation = false;
@@ -86,35 +88,31 @@ class LocationProvider extends ChangeNotifier {
       }
       if (permission == LocationPermission.deniedForever) {
         _locationError = 'Location permission permanently denied. Please enable in Settings.';
-        debugPrint('[LocationProvider] Permission permanently denied');
+        debugLog('[LocationProvider] Permission permanently denied');
         _isDetectingLocation = false;
         notifyListeners();
         return;
       }
 
       // Get position
-      debugPrint('[LocationProvider] Fetching GPS position...');
+      debugLog('[LocationProvider] Fetching GPS position...');
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
           timeLimit: Duration(seconds: 15),
         ),
       );
-      debugPrint('[LocationProvider] Got position: ${position.latitude}, ${position.longitude}');
 
       // Reverse geocode
-      debugPrint('[LocationProvider] Reverse geocoding...');
+      debugLog('[LocationProvider] Reverse geocoding...');
       final placemarks = await placemarkFromCoordinates(
         position.latitude,
         position.longitude,
       );
-      debugPrint('[LocationProvider] Got ${placemarks.length} placemarks');
+      debugLog('[LocationProvider] Got ${placemarks.length} placemarks');
 
       if (placemarks.isNotEmpty) {
         final p = placemarks.first;
-        debugPrint('[LocationProvider] Placemark: subLocality=${p.subLocality}, '
-            'locality=${p.locality}, subAdmin=${p.subAdministrativeArea}, '
-            'admin=${p.administrativeArea}');
 
         _currentLocationText = [
           p.subLocality,
@@ -124,16 +122,15 @@ class LocationProvider extends ChangeNotifier {
         ].where((s) => s != null && s.isNotEmpty).join(', ');
 
         _selectedCity = p.locality ?? p.subAdministrativeArea ?? 'Unknown';
-        debugPrint('[LocationProvider] Resolved: city=$_selectedCity, text=$_currentLocationText');
       } else {
         _currentLocationText = 'Lat: ${position.latitude.toStringAsFixed(4)}, '
             'Lng: ${position.longitude.toStringAsFixed(4)}';
-        debugPrint('[LocationProvider] No placemarks, using coords');
+        debugLog('[LocationProvider] No placemarks, using coords');
       }
     } catch (e, stack) {
       _locationError = 'Could not detect location. Tap to retry.';
-      debugPrint('[LocationProvider] ERROR: $e');
-      debugPrint('[LocationProvider] Stack: $stack');
+      debugLog('[LocationProvider] ERROR: ${e.runtimeType}');
+      errorReporter.report(e, stack, hint: 'location detect');
     }
 
     _isDetectingLocation = false;
