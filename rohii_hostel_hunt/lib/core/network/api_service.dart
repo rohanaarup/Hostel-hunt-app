@@ -38,11 +38,15 @@ class ApiService {
     'USE_LOCAL_BACKEND',
     defaultValue: false,
   );
+  static const String localApiHost = String.fromEnvironment(
+    'LOCAL_API_HOST',
+    defaultValue: '192.168.1.51',
+  );
 
   /// Platform-aware base URL:
-  ///   Flutter Web  → http://127.0.0.1:8001  (localhost, same machine)
-  ///   Android emu  → http://10.0.2.2:8001   (emulator alias for host)
-  ///   iOS sim/dev  → http://localhost:8001
+  ///   Flutter Web  → http://127.0.0.1:8000  (localhost, same machine)
+  ///   Android      → http://LOCAL_API_HOST:8000
+  ///   iOS sim/dev  → http://localhost:8000
   ///   Production   → https://rohii-backend.onrender.com/api
   static String get baseUrl {
     if (!useLocalBackend) {
@@ -51,12 +55,12 @@ class ApiService {
     }
 
     if (kIsWeb) {
-      return 'http://127.0.0.1:8001/api/v1';
+      return 'http://127.0.0.1:8000/api/v1';
     }
     if (Platform.isAndroid) {
-      return 'http://192.168.0.107:8001/api/v1';
+      return 'http://$localApiHost:8000/api/v1';
     }
-    return 'http://localhost:8001/api/v1';
+    return 'http://localhost:8000/api/v1';
   }
 
   static const Duration _timeout = Duration(seconds: 60);
@@ -137,7 +141,9 @@ class ApiService {
   Future<ApiResponse> authPost(String path, Map<String, dynamic> body) async {
     return _authenticatedRequest(() async {
       final token = await getAccessToken();
-      debugPrint('[API] authPost $path | Token: ${token != null ? "present" : "MISSING"}');
+      debugPrint(
+        '[API] authPost $path | Token: ${token != null ? "present" : "MISSING"}',
+      );
       return http.post(
         Uri.parse('$baseUrl$path'),
         headers: _headers(accessToken: token),
@@ -153,7 +159,9 @@ class ApiService {
   }) async {
     return _authenticatedRequest(() async {
       final token = await getAccessToken();
-      debugPrint('[API] authGet $path | Token: ${token != null ? "present" : "MISSING"}');
+      debugPrint(
+        '[API] authGet $path | Token: ${token != null ? "present" : "MISSING"}',
+      );
       final uri = Uri.parse(
         '$baseUrl$path',
       ).replace(queryParameters: queryParams);
@@ -190,12 +198,14 @@ class ApiService {
           : MediaType('image', 'jpeg');
       final request = http.MultipartRequest('POST', uri)
         ..headers['Authorization'] = 'Bearer $token'
-        ..files.add(http.MultipartFile.fromBytes(
-          fieldName,
-          bytes,
-          filename: filename,
-          contentType: contentType,
-        ));
+        ..files.add(
+          http.MultipartFile.fromBytes(
+            fieldName,
+            bytes,
+            filename: filename,
+            contentType: contentType,
+          ),
+        );
       final streamed = await request.send().timeout(_timeout);
       final response = await http.Response.fromStream(streamed);
       return ApiResponse.fromResponse(response);
@@ -238,7 +248,9 @@ class ApiService {
   }) async {
     return _authenticatedRawRequest(() async {
       final token = await getAccessToken();
-      debugPrint('[API] authGetRaw $path | Token: ${token != null ? "present" : "MISSING"}');
+      debugPrint(
+        '[API] authGetRaw $path | Token: ${token != null ? "present" : "MISSING"}',
+      );
       final uri = Uri.parse(
         '$baseUrl$path',
       ).replace(queryParameters: queryParams);
@@ -254,7 +266,9 @@ class ApiService {
   ) async {
     return _authenticatedRawRequest(() async {
       final token = await getAccessToken();
-      debugPrint('[API] authPostRaw $path | Token: ${token != null ? "present" : "MISSING"}');
+      debugPrint(
+        '[API] authPostRaw $path | Token: ${token != null ? "present" : "MISSING"}',
+      );
       return http.post(
         Uri.parse('$baseUrl$path'),
         headers: _headers(accessToken: token),
@@ -358,7 +372,6 @@ class ApiService {
   }
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Response Model
 // ─────────────────────────────────────────────────────────────────────────────
@@ -379,10 +392,10 @@ class ApiResponse {
   factory ApiResponse.fromResponse(http.Response response) {
     try {
       final body = jsonDecode(response.body) as Map<String, dynamic>;
-      
+
       bool isSuccess = body['success'] as bool? ?? (response.statusCode < 400);
       String msg = body['message'] as String? ?? '';
-      
+
       if (!isSuccess && body.containsKey('errors') && body['errors'] is Map) {
         final errors = body['errors'] as Map;
         if (errors.isNotEmpty) {
@@ -395,7 +408,7 @@ class ApiResponse {
           }
         }
       }
-      
+
       return ApiResponse(
         success: isSuccess,
         message: msg,
@@ -459,7 +472,9 @@ class RawApiResponse {
       debugPrint('API Error (RawApiResponse.fromResponse): $e');
       debugPrint('URL: ${response.request?.url}');
       debugPrint('Status Code: ${response.statusCode}');
-      debugPrint('Response Body (first 200 chars): ${response.body.length > 200 ? response.body.substring(0, 200) : response.body}');
+      debugPrint(
+        'Response Body (first 200 chars): ${response.body.length > 200 ? response.body.substring(0, 200) : response.body}',
+      );
       return RawApiResponse(
         success: false,
         message: 'Unexpected server response.',
