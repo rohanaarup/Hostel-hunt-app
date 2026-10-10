@@ -86,42 +86,40 @@ void configureSentryOptions(
 
 SentryEvent? scrubEvent(SentryEvent event, Hint hint) {
   final message = event.message;
-  final template = message?.template;
-  return event.copyWith(
-    message: message?.copyWith(
-      formatted: scrubText(message.formatted),
-      template: template == null ? null : scrubText(template),
-      params: message.params
-          ?.map((p) => p is String ? scrubText(p) : p)
-          .toList(),
-    ),
-    exceptions: event.exceptions
-        ?.map(
-          (e) => e.value == null ? e : e.copyWith(value: scrubText(e.value!)),
-        )
-        .toList(),
-    breadcrumbs: event.breadcrumbs
-        ?.map((b) => scrubBreadcrumb(b, Hint()) ?? b)
-        .toList(),
-  );
+  if (message != null) {
+    message.formatted = scrubText(message.formatted);
+    final template = message.template;
+    if (template != null) message.template = scrubText(template);
+    message.params = message.params
+        ?.map((p) => p is String ? scrubText(p) : p)
+        .toList();
+  }
+  for (final exception in event.exceptions ?? const <SentryException>[]) {
+    final value = exception.value;
+    if (value != null) exception.value = scrubText(value);
+  }
+  for (final crumb in event.breadcrumbs ?? const <Breadcrumb>[]) {
+    scrubBreadcrumb(crumb, hint);
+  }
+  return event;
 }
 
 Breadcrumb? scrubBreadcrumb(Breadcrumb? crumb, Hint hint) {
   if (crumb == null) return null;
+  final message = crumb.message;
+  if (message != null) crumb.message = scrubText(message);
   final data = crumb.data;
-  return crumb.copyWith(
-    message: crumb.message == null ? null : scrubText(crumb.message!),
-    data: data == null
-        ? null
-        : {
-            for (final entry in data.entries)
-              entry.key: isSensitiveKey(entry.key)
-                  ? '[Filtered]'
-                  : (entry.value is String
-                        ? scrubText(entry.value as String)
-                        : entry.value),
-          },
-  );
+  if (data != null) {
+    crumb.data = {
+      for (final entry in data.entries)
+        entry.key: isSensitiveKey(entry.key)
+            ? '[Filtered]'
+            : (entry.value is String
+                  ? scrubText(entry.value as String)
+                  : entry.value),
+    };
+  }
+  return crumb;
 }
 
 class SentryErrorReporter implements ErrorReporter {

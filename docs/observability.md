@@ -39,4 +39,10 @@ flutter run --dart-define=SENTRY_DSN=<Flutter project DSN> --dart-define=SENTRY_
 Within about a minute an issue titled "Sentry test error (synthetic, safe to ignore)" appears in the Sentry project, in environment `test`. It is safe to resolve and ignore.
 
 ## Package
-`sentry_flutter 8.14.2` (pinned exactly), which brings `sentry`, `package_info_plus` and `package_info_plus_platform_interface`. Version 10.0.0 also resolves but was not chosen: it needs Android `minSdk` 26 (dropping older phones) and forwards Sentry logs by default.
+`sentry_flutter 9.30.1` (pinned exactly), which brings `sentry`, `package_info_plus` and `package_info_plus_platform_interface`.
+
+Why not the others, checked on 2026-10-10 with Flutter 3.44.4:
+- `8.14.2` does not compile for Android here (`:sentry_flutter:compileDebugKotlin` fails with "Language version 1.6 is no longer supported").
+- `10.0.0` needs Android `minSdk` 26 (dropping older phones), Flutter 3.44 or newer, and forwards Sentry logs by default.
+
+The Flutter build prints a warning that `sentry_flutter`, `package_info_plus` and `share_plus` still apply the Kotlin Gradle Plugin, which a future Flutter may reject. That affects `share_plus` already today; revisit when upgrading Flutter (version 10 of the Sentry plugin is the one migrated to Flutter's built-in Kotlin).
