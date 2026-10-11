@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
-import 'package:rohii_hostel_hunt/core/network/api_service.dart';
 import 'package:rohii_hostel_hunt/core/network/api_provider.dart';
 import 'package:rohii_hostel_hunt/core/observability/debug_log.dart';
+import 'package:rohii_hostel_hunt/features/location/presentation/providers/location_riverpod_provider.dart';
 
 /// ─────────────────────────────────────────────────────────
 /// Hostel Hunt — Search Provider (Riverpod)
@@ -83,14 +83,11 @@ const List<String> popularSearches = [
 ];
 
 class SearchNotifier extends Notifier<SearchStateData> {
-  late final ApiService _api;
   Timer? _debounce;
   static const _debounceDuration = Duration(milliseconds: 300);
 
   @override
   SearchStateData build() {
-    _api = ref.read(apiServiceProvider);
-
     // Cancel debounce timer when provider is disposed
     ref.onDispose(() {
       _debounce?.cancel();
@@ -159,9 +156,16 @@ class SearchNotifier extends Notifier<SearchStateData> {
   /// Core search logic — 1:1 translation of SearchProvider._performSearch()
   Future<void> _performSearch(String searchQuery) async {
     try {
-      final response = await _api.getRaw(
+      // Search stays inside the selected city (and locality, when one is chosen).
+      final location = ref.read(locationProvider);
+      final params = <String, String>{'search': searchQuery};
+      if (location.selectedCity.isNotEmpty) params['city'] = location.selectedCity;
+      final locality = location.selectedLocality;
+      if (locality != null && locality.isNotEmpty) params['locality'] = locality;
+
+      final response = await ref.read(apiServiceProvider).getRaw(
         '/hostels/',
-        queryParams: {'search': searchQuery},
+        queryParams: params,
       );
 
       if (!response.success) {

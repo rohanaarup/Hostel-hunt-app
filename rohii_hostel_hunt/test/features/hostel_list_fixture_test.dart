@@ -32,6 +32,13 @@ void main() {
     expect(hostels.last.image, 'https://example.test/seed/beta.jpg');
   });
 
+  test('the locality and the amenities are read', () {
+    expect(hostels.first.locality, 'Gachibowli');
+    expect(hostels.last.locality, 'Kondapur');
+    expect(hostels.first.amenities, ['wifi', 'ac']);
+    expect(hostels.last.amenities, ['wifi']);
+  });
+
   test('the starting price is read', () {
     expect(hostels.first.pricePerMonth, 6500);
     expect(hostels.first.price, '₹6500/mo');

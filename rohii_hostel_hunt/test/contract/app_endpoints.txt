@@ -14,6 +14,7 @@ app   POST   /auth/me/photo/
 app   GET    /hostels/
 app   GET    /hostels/{id}/
 app   GET    /hostels/localities/
+app   GET    /cities/
 app   POST   /bookings/
 app   GET    /bookings/my/
 app   GET    /wishlist/
@@ -25,6 +26,8 @@ app   POST   /payments/verify/
 app   GET    /payments/status/{id}/
 app   GET    /hostels/?city
 app   GET    /hostels/?locality
+app   GET    /hostels/?page
+app   GET    /hostels/?page_size
 app   GET    /hostels/?gender_type
 app   GET    /hostels/?search
 app   GET    /hostels/?amenity

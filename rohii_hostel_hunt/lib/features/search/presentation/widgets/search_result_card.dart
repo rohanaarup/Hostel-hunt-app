@@ -109,29 +109,35 @@ class _SearchResultCardState extends State<SearchResultCard> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
-        child: Image.asset(
-          hostel.image,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.auburn500.withValues(alpha: 0.15),
-                  AppColors.auburn700.withValues(alpha: 0.08),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Icon(
-              Icons.apartment_rounded,
-              color: AppColors.auburn500.withValues(alpha: 0.5),
-              size: 32,
-            ),
-          ),
-        ),
+        child: _thumbnailImage(hostel.image),
       ),
     );
+  }
+
+  /// The cover is a web address (Cloudinary) for real hostels and a bundled asset path otherwise.
+  Widget _thumbnailImage(String source) {
+    Widget placeholder(BuildContext context, Object error, StackTrace? stackTrace) => Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.auburn500.withValues(alpha: 0.15),
+                AppColors.auburn700.withValues(alpha: 0.08),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Icon(
+            Icons.apartment_rounded,
+            color: AppColors.auburn500.withValues(alpha: 0.5),
+            size: 32,
+          ),
+        );
+
+    if (source.startsWith('http')) {
+      return Image.network(source, fit: BoxFit.cover, errorBuilder: placeholder);
+    }
+    return Image.asset(source, fit: BoxFit.cover, errorBuilder: placeholder);
   }
 
   Widget _buildInfo(Hostel hostel, bool isDark) {

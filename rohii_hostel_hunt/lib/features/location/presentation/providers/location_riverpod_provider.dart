@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:rohii_hostel_hunt/features/location/domain/models/location_model.dart';
 import 'package:rohii_hostel_hunt/core/observability/debug_log.dart';
 import 'package:rohii_hostel_hunt/core/observability/error_reporter.dart';
+import 'package:rohii_hostel_hunt/core/storage/shared_prefs_provider.dart';
 
 /// ─────────────────────────────────────────────────────────
 /// Hostel Hunt — Location Provider (Riverpod)
@@ -73,23 +74,33 @@ class LocationNotifier extends Notifier<LocationState> {
   static const _cityKey = 'selected_city';
   static const _localityKey = 'selected_locality';
 
+  /// The saved city and locality are read from the preloaded preferences, so the very first state
+  /// already holds them and the hostel list is requested once with the right location. Only when
+  /// no preloaded preferences were provided (tests) do they arrive later, from disk.
   @override
   LocationState build() {
+    final preloaded = ref.read(sharedPreferencesProvider);
+    if (preloaded != null) return _fromPrefs(preloaded);
     _loadPersistedLocation();
     return const LocationState();
+  }
+
+  LocationState _fromPrefs(SharedPreferences prefs) {
+    final city = prefs.getString(_cityKey) ?? '';
+    if (city.isEmpty) return const LocationState();
+    final locality = prefs.getString(_localityKey);
+    return LocationState(
+      selectedCity: city,
+      selectedLocality: (locality == null || locality.isEmpty) ? null : locality,
+    );
   }
 
   Future<void> _loadPersistedLocation() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final city = prefs.getString(_cityKey) ?? '';
-      final locality = prefs.getString(_localityKey);
-      if (city.isNotEmpty) {
-        state = state.copyWith(
-          selectedCity: city,
-          selectedLocality: locality,
-        );
-      }
+      // A choice made while the preferences were loading wins over the saved one.
+      if (state.selectedCity.isNotEmpty) return;
+      state = _fromPrefs(prefs);
     } catch (e, st) {
       errorReporter.report(e, st, hint: 'location: load saved city');
     }
@@ -97,7 +108,7 @@ class LocationNotifier extends Notifier<LocationState> {
 
   Future<void> _persist() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = ref.read(sharedPreferencesProvider) ?? await SharedPreferences.getInstance();
       await prefs.setString(_cityKey, state.selectedCity);
       if (state.selectedLocality != null) {
         await prefs.setString(_localityKey, state.selectedLocality!);

@@ -8,6 +8,12 @@ import 'package:rohii_hostel_hunt/core/network/api_service.dart';
 class FakeApiService implements ApiService {
   final List<String> calls = [];
 
+  /// The query parameters of every public GET, in order (null when none were sent).
+  final List<Map<String, String>?> queries = [];
+
+  /// Answer public GETs yourself. When null, /hostels/ answers from the fixture.
+  RawApiResponse Function(String path, Map<String, String>? query)? onGetRaw;
+
   static Map<String, dynamic> hostelsFixture() =>
       jsonDecode(File('test/fixtures/hostels_list.json').readAsStringSync())
           as Map<String, dynamic>;
@@ -21,6 +27,9 @@ class FakeApiService implements ApiService {
     Map<String, String>? queryParams,
   }) async {
     calls.add('GET $path');
+    queries.add(queryParams);
+    final custom = onGetRaw;
+    if (custom != null) return custom(path, queryParams);
     if (path == '/hostels/') return _ok(hostelsFixture());
     return _ok(<dynamic>[]);
   }

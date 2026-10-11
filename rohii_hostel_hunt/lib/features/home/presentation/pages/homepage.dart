@@ -8,6 +8,7 @@ import 'package:rohii_hostel_hunt/features/location/presentation/providers/locat
 import 'package:rohii_hostel_hunt/core/theme/theme_provider.dart';
 import 'package:rohii_hostel_hunt/features/search/presentation/widgets/premium_filter_chips.dart';
 import 'package:rohii_hostel_hunt/features/hostel/presentation/widgets/premium_hostel_card.dart';
+import 'package:rohii_hostel_hunt/features/home/presentation/widgets/hostel_list_states.dart';
 import 'package:rohii_hostel_hunt/shared/widgets/premium_bottom_nav.dart';
 
 class Homepage extends ConsumerStatefulWidget {
@@ -454,6 +455,7 @@ class _HomepageState extends ConsumerState<Homepage> {
   /// Now uses Riverpod AsyncValue instead of GetX Obx.
   Widget _buildHostelList(bool isDark) {
     final hostelListAsync = ref.watch(hostelListProvider);
+    final paging = ref.watch(hostelPagingProvider);
 
     return Expanded(
       child: hostelListAsync.when(
@@ -486,86 +488,10 @@ class _HomepageState extends ConsumerState<Homepage> {
         ),
 
         // ── Error state ──
-        error: (error, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.error.withValues(alpha: 0.1),
-                  ),
-                  child: Icon(
-                    Icons.cloud_off_rounded,
-                    size: 36,
-                    color: AppColors.error.withValues(alpha: 0.7),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Could not load hostels',
-                  style: TextStyle(
-                    color: AppColors.textHeading(isDark),
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  error.toString(),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.textSecondary(isDark),
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                GestureDetector(
-                  onTap: () => ref.read(hostelListProvider.notifier).refresh(),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.auburn500, AppColors.auburn700],
-                      ),
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.auburn500.withValues(alpha: 0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.refresh_rounded,
-                            color: AppColors.ivory50, size: 18),
-                        SizedBox(width: 8),
-                        Text(
-                          'Retry',
-                          style: TextStyle(
-                            color: AppColors.ivory50,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+        error: (error, _) => HostelListErrorState(
+          message: error.toString().replaceFirst('Exception: ', ''),
+          isDark: isDark,
+          onRetry: () => ref.read(hostelListProvider.notifier).refresh(),
         ),
 
         // ── Data state ──
@@ -573,104 +499,36 @@ class _HomepageState extends ConsumerState<Homepage> {
           // ── Empty state ──
           if (hostels.isEmpty) {
             final locState = ref.read(locationProvider);
-            final hasLocality = locState.selectedLocality != null &&
-                locState.selectedLocality!.isNotEmpty;
-            final city = locState.selectedCity;
-            final locality = locState.selectedLocality ?? '';
-
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [
-                            AppColors.auburn500.withValues(alpha: 0.12),
-                            AppColors.auburn300.withValues(alpha: 0.06),
-                          ],
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.location_off_rounded,
-                        size: 44,
-                        color: AppColors.auburn500.withValues(alpha: 0.55),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      hasLocality
-                          ? 'No hostels in $locality'
-                          : 'No hostels available',
-                      style: TextStyle(
-                        color: AppColors.textHeading(isDark),
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      hasLocality
-                          ? 'No listings match this area yet'
-                          : 'Check back later for new listings',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppColors.textSecondary(isDark),
-                        fontSize: 14,
-                      ),
-                    ),
-                    if (hasLocality) ...[
-                      const SizedBox(height: 20),
-                      GestureDetector(
-                        onTap: () {
-                          ref.read(locationProvider.notifier).clearLocality();
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [AppColors.auburn500, AppColors.auburn700],
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.auburn500.withValues(alpha: 0.3),
-                                blurRadius: 10,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            'Show all in $city',
-                            style: const TextStyle(
-                              color: AppColors.ivory50,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+            return HostelListEmptyState(
+              city: locState.selectedCity,
+              locality: locState.selectedLocality,
+              isDark: isDark,
+              onShowAll: () => ref.read(locationProvider.notifier).clearLocality(),
             );
           }
 
-          // ── Success state — render live hostel list ──
+          // ── Success state — live hostel list, one page at a time ──
           return ListView.builder(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 90),
             physics: const BouncingScrollPhysics(),
-            itemCount: hostels.length,
+            itemCount: hostels.length + 1,
             itemBuilder: (context, index) {
+              if (index == hostels.length) {
+                // The footer is only built once the user scrolls close to the end of the list:
+                // that is the moment to ask for the next page.
+                final canLoadMore = paging.hasMore && !paging.loadingMore && paging.loadMoreError == null;
+                if (canLoadMore) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) ref.read(hostelListProvider.notifier).loadMore();
+                  });
+                }
+                return HostelListFooter(
+                  loading: paging.hasMore && paging.loadMoreError == null,
+                  error: paging.loadMoreError,
+                  isDark: isDark,
+                  onRetry: () => ref.read(hostelListProvider.notifier).loadMore(),
+                );
+              }
               return PremiumHostelCard(
                 hostel: hostels[index],
                 isDark: isDark,

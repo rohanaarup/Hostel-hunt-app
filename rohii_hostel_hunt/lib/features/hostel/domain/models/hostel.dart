@@ -46,6 +46,7 @@ class Hostel {
   final String city;
   final String state;
   final String address;
+  final String locality;
   final String pincode;
   final String hostelType; // 'boys', 'girls', 'mixed'
   final double pricePerMonth;
@@ -87,6 +88,7 @@ class Hostel {
     this.city = '',
     this.state = '',
     this.address = '',
+    this.locality = '',
     this.pincode = '',
     this.hostelType = 'mixed',
     this.pricePerMonth = 0,
@@ -201,6 +203,7 @@ class Hostel {
       city: json['city'] as String? ?? '',
       state: json['state'] as String? ?? '',
       address: json['address'] as String? ?? '',
+      locality: json['locality'] as String? ?? '',
       pincode: json['pincode'] as String? ?? '',
       hostelType: json['gender_type'] as String? ?? 'mixed',
       // The list endpoint sends the starting price as `price_from`; detail sends `price_per_month`.
@@ -256,6 +259,7 @@ class Hostel {
         'city': city,
         'state': state,
         'address': address,
+        'locality': locality,
         'pincode': pincode,
         'gender_type': hostelType,
         'price_per_month': pricePerMonth,
@@ -291,6 +295,7 @@ class Hostel {
       city: detail.city.isNotEmpty ? detail.city : city,
       state: detail.state.isNotEmpty ? detail.state : state,
       address: detail.address,
+      locality: detail.locality.isNotEmpty ? detail.locality : locality,
       pincode: detail.pincode,
       hostelType: detail.hostelType,
       pricePerMonth: detail.pricePerMonth > 0 ? detail.pricePerMonth : pricePerMonth,
