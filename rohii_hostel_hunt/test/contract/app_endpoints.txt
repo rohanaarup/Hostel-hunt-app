@@ -9,14 +9,14 @@ app   POST   /auth/login/
 app   POST   /auth/reset-password/
 app   POST   /auth/token/refresh/
 app   GET    /auth/me/
-app   PATCH  /auth/me/            | expected-fail: view allows GET only; the app PATCHes profile edits (405)
-app   POST   /auth/me/photo/      | expected-fail: route does not exist; the app uploads the profile photo here (404)
+app   PATCH  /auth/me/
+app   POST   /auth/me/photo/
 app   GET    /hostels/
 app   GET    /hostels/{id}/
 app   GET    /hostels/localities/
 app   POST   /bookings/
-app   GET    /bookings/my-bookings/   | expected-fail: route does not exist; the real one is /bookings/my/ (404)
-app   GET    /favorites/hostels/      | expected-fail: route does not exist; the real one is /wishlist/ (404)
+app   GET    /bookings/my/
+app   GET    /wishlist/
 app   GET    /dashboard/student/stats/
 app   POST   /payments/create-order/
 app   POST   /payments/initiate-upi-intent/
@@ -26,5 +26,5 @@ app   GET    /payments/status/{id}/
 app   GET    /hostels/?city
 app   GET    /hostels/?locality
 app   GET    /hostels/?gender_type
-app   GET    /hostels/?search         | expected-fail: backend ignores the search parameter
-app   GET    /hostels/?amenity        | expected-fail: backend ignores the amenity parameter
+app   GET    /hostels/?search
+app   GET    /hostels/?amenity
