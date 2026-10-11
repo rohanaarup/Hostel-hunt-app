@@ -1,9 +1,11 @@
-import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:rohii_hostel_hunt/core/network/api_error.dart';
+import 'package:rohii_hostel_hunt/core/observability/error_reporter.dart';
 import 'package:rohii_hostel_hunt/core/theme/theme_provider.dart';
 import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/features/profile/presentation/providers/user_provider.dart';
@@ -44,6 +46,8 @@ class _ProfileContent extends ConsumerStatefulWidget {
 
 class _ProfileState extends ConsumerState<_ProfileContent> {
   bool _isUploadingPhoto = false;
+  double _uploadProgress = 0;
+  Completer<void>? _cancelUpload;
 
   // ── Logout ──────────────────────────────────────────────────────────────────
   void _logout() {
@@ -70,9 +74,11 @@ class _ProfileState extends ConsumerState<_ProfileContent> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              context.go('/login');
+              // Forget the saved login and the cached profile, then leave.
+              await ref.read(userProvider.notifier).signOut();
+              if (mounted) context.go('/login');
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
@@ -90,37 +96,101 @@ class _ProfileState extends ConsumerState<_ProfileContent> {
   }
 
   // ── Photo upload ─────────────────────────────────────────────────────────────
+  void _showMessage(String message, {Color? color, SnackBarAction? action}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message), backgroundColor: color, action: action));
+  }
+
+  static String _mimeTypeOf(XFile file) {
+    final name = file.name.toLowerCase();
+    if (name.endsWith('.png')) return 'image/png';
+    if (name.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
+  }
+
   Future<void> _pickAndUploadPhoto() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
-      maxWidth: 800,
-    );
+    if (_isUploadingPhoto) return;
+
+    final XFile? picked;
+    try {
+      // The picker shrinks the photo before we ever read it: at most 1600 px on the long side,
+      // re-encoded at 80 percent quality. A phone photo goes from several MB to a few hundred KB.
+      picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1600,
+        maxHeight: 1600,
+      );
+    } catch (e, st) {
+      errorReporter.report(e, st, hint: 'profile: open photo picker');
+      _showMessage(
+        "Couldn't open your photos. Check that Hostel Hunt may access them in your phone's settings.",
+        color: AppColors.error,
+      );
+      return;
+    }
     if (picked == null) return;
 
-    setState(() => _isUploadingPhoto = true);
-    final notifier = ref.read(userProvider.notifier);
-    final mimeType = picked.mimeType ?? 'image/jpeg';
-    final bytes = await picked.readAsBytes();
-    final error = await notifier.uploadPhoto(bytes, picked.name, mimeType);
-    if (mounted) {
-      setState(() => _isUploadingPhoto = false);
-      if (error != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Upload failed: $error'),
-            backgroundColor: AppColors.error,
-          ),
+    final List<int> bytes;
+    try {
+      bytes = await picked.readAsBytes();
+    } catch (e, st) {
+      errorReporter.report(e, st, hint: 'profile: read picked photo');
+      _showMessage("Couldn't read that photo. Please choose another one.", color: AppColors.error);
+      return;
+    }
+    await _uploadPhoto(bytes, picked.name, _mimeTypeOf(picked));
+  }
+
+  Future<void> _uploadPhoto(List<int> bytes, String name, String mimeType) async {
+    final cancel = Completer<void>();
+    setState(() {
+      _isUploadingPhoto = true;
+      _uploadProgress = 0;
+      _cancelUpload = cancel;
+    });
+
+    final error = await ref.read(userProvider.notifier).uploadPhoto(
+          bytes,
+          name,
+          mimeType,
+          onProgress: (progress) {
+            if (mounted) setState(() => _uploadProgress = progress);
+          },
+          cancel: cancel.future,
         );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Profile photo updated!'),
-            backgroundColor: AppColors.emerald500,
-          ),
-        );
-      }
+
+    if (!mounted) return;
+    setState(() {
+      _isUploadingPhoto = false;
+      _cancelUpload = null;
+    });
+
+    if (error == null) {
+      _showMessage('Profile photo updated!', color: AppColors.emerald500);
+    } else if (error.kind == ApiErrorKind.cancelled) {
+      _showMessage('Upload cancelled.');
+    } else {
+      // A bad connection or a sleeping server is worth another try with the same photo.
+      final retryable = const {
+        ApiErrorKind.offline,
+        ApiErrorKind.timeout,
+        ApiErrorKind.unavailable,
+        ApiErrorKind.server,
+      }.contains(error.kind);
+      _showMessage(
+        error.message,
+        color: AppColors.error,
+        action: retryable
+            ? SnackBarAction(
+                label: 'Retry',
+                textColor: AppColors.ivory50,
+                onPressed: () => _uploadPhoto(bytes, name, mimeType),
+              )
+            : null,
+      );
     }
   }
 
@@ -133,24 +203,12 @@ class _ProfileState extends ConsumerState<_ProfileContent> {
       builder: (_) => _EditProfileSheet(
         isDark: widget.isDark,
         user: user,
+        // Returns the reason it failed (the sheet shows it and stays open), or null when saved.
         onSave: (fields) async {
-          final notifier = ref.read(userProvider.notifier);
-          final error = await notifier.updateProfile(fields);
-          if (mounted) {
-            if (error != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content: Text('Update failed: $error'),
-                    backgroundColor: AppColors.error),
-              );
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content: const Text('Profile updated!'),
-                    backgroundColor: AppColors.emerald500),
-              );
-            }
-          }
+          final error = await ref.read(userProvider.notifier).updateProfile(fields);
+          if (error != null) return error.message;
+          _showMessage('Profile updated!', color: AppColors.emerald500);
+          return null;
         },
       ),
     );
@@ -246,10 +304,28 @@ class _ProfileState extends ConsumerState<_ProfileContent> {
                       ),
                       child: ClipOval(
                         child: _isUploadingPhoto
-                            ? Center(
-                                child: CircularProgressIndicator(
-                                  color: AppColors.auburn500,
-                                  strokeWidth: 2,
+                            ? GestureDetector(
+                                onTap: () => _cancelUpload?.complete(),
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: avatarSize * 0.5,
+                                      height: avatarSize * 0.5,
+                                      child: CircularProgressIndicator(
+                                        value: _uploadProgress > 0 && _uploadProgress < 1
+                                            ? _uploadProgress
+                                            : null,
+                                        color: AppColors.auburn500,
+                                        strokeWidth: 3,
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.close_rounded,
+                                      size: 18,
+                                      color: isDark ? AppColors.ivory300 : AppColors.ink700,
+                                    ),
+                                  ],
                                 ),
                               )
                             : user?.profilePhotoUrl != null
@@ -350,7 +426,7 @@ class _ProfileState extends ConsumerState<_ProfileContent> {
           const SizedBox(height: 4),
           Text(
             userAsync.hasError 
-                ? userAsync.error.toString() 
+                ? userMessageOf(userAsync.error!)
                 : (user?.email ?? ''),
             style: TextStyle(
               color: isDark ? AppColors.ivory300 : AppColors.ink700,
@@ -358,6 +434,12 @@ class _ProfileState extends ConsumerState<_ProfileContent> {
               fontWeight: FontWeight.w400,
             ),
           ),
+          if (userAsync.hasError)
+            TextButton.icon(
+              onPressed: () => ref.read(userProvider.notifier).refresh(),
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Try again'),
+            ),
           if (user?.gender != null || user?.dateOfBirth != null) ...[
             const SizedBox(height: 6),
             Text(
@@ -390,14 +472,14 @@ class _ProfileState extends ConsumerState<_ProfileContent> {
                   isDark: isDark,
                   icon: Icons.bookmark_added_rounded,
                   iconColor: AppColors.auburn500,
-                  value: user?.bookingsCount.toString() ?? '0',
+                  value: (user != null && user.statsAvailable) ? user.bookingsCount.toString() : '-',
                   label: 'Bookings Made',
                 ),
                 _StatCard(
                   isDark: isDark,
                   icon: Icons.favorite_rounded,
                   iconColor: AppColors.auburn500,
-                  value: user?.savedHostelsCount.toString() ?? '0',
+                  value: (user != null && user.statsAvailable) ? user.savedHostelsCount.toString() : '-',
                   label: 'Saved Hostels',
                 ),
                 _StatCard(
@@ -668,12 +750,8 @@ class _ProfileState extends ConsumerState<_ProfileContent> {
   }
 
   static String _formatDob(String iso) {
-    try {
-      final d = DateTime.parse(iso);
-      return '${d.day} ${_month(d.month)} ${d.year}';
-    } catch (_) {
-      return iso;
-    }
+    final d = DateTime.tryParse(iso);
+    return d == null ? iso : '${d.day} ${_month(d.month)} ${d.year}';
   }
 
   static String _month(int m) {
@@ -689,7 +767,7 @@ class _ProfileState extends ConsumerState<_ProfileContent> {
 class _EditProfileSheet extends StatefulWidget {
   final bool isDark;
   final UserProfile? user;
-  final Future<void> Function(Map<String, dynamic>) onSave;
+  final Future<String?> Function(Map<String, dynamic>) onSave;
 
   const _EditProfileSheet({
     required this.isDark,
@@ -710,6 +788,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   String? _selectedGender;
   DateTime? _selectedDob;
   bool _isSaving = false;
+  String? _saveError;
 
   @override
   void initState() {
@@ -719,17 +798,9 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     _mobileCtrl = TextEditingController(text: u?.phone ?? '');
     _emailCtrl = TextEditingController(text: u?.email ?? '');
     _selectedGender = u?.gender;
-    if (u?.dateOfBirth != null) {
-      try {
-        _selectedDob = DateTime.parse(u!.dateOfBirth!);
-        _dobCtrl = TextEditingController(
-            text: _formatDate(_selectedDob!));
-      } catch (_) {
-        _dobCtrl = TextEditingController();
-      }
-    } else {
-      _dobCtrl = TextEditingController();
-    }
+    _selectedDob = DateTime.tryParse(u?.dateOfBirth ?? '');
+    _dobCtrl = TextEditingController(
+        text: _selectedDob == null ? '' : _formatDate(_selectedDob!));
   }
 
   @override
@@ -774,7 +845,10 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+      _saveError = null;
+    });
 
     final fields = <String, dynamic>{};
     final name = _nameCtrl.text.trim();
@@ -806,11 +880,13 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
       return;
     }
 
-    await widget.onSave(fields);
-    if (mounted) {
-      setState(() => _isSaving = false);
-      Navigator.pop(context);
-    }
+    final error = await widget.onSave(fields);
+    if (!mounted) return;
+    setState(() {
+      _isSaving = false;
+      _saveError = error;
+    });
+    if (error == null) Navigator.pop(context);
   }
 
   @override
@@ -963,13 +1039,18 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                         value: 'female', child: Text('Female')),
                     DropdownMenuItem(
                         value: 'other', child: Text('Other')),
-                    DropdownMenuItem(
-                        value: 'prefer_not_to_say',
-                        child: Text('Prefer not to say')),
                   ],
                   onChanged: (v) => setState(() => _selectedGender = v),
                 ),
                 const SizedBox(height: 28),
+
+                if (_saveError != null) ...[
+                  Text(
+                    _saveError!,
+                    style: TextStyle(color: AppColors.error, fontSize: 13.5, height: 1.4),
+                  ),
+                  const SizedBox(height: 12),
+                ],
 
                 // Save button
                 SizedBox(

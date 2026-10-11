@@ -1,3 +1,4 @@
+import 'package:rohii_hostel_hunt/core/network/api_error.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -128,7 +129,23 @@ class _BedSelectionScreenState extends ConsumerState<BedSelectionScreen> {
         },
         loading: () => const Center(child: CircularProgressIndicator(color: Colors.orange)),
         error: (error, stack) => Center(
-          child: Text("Error loading rooms", style: TextStyle(color: cs.error)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text("Could not load rooms", style: TextStyle(color: cs.error, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                Text(userMessageOf(error), textAlign: TextAlign.center),
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  onPressed: () => ref.invalidate(roomsProvider(widget.hostel.id)),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
       bottomNavigationBar: _buildBottomBar(isActive: isDone, cs: cs),

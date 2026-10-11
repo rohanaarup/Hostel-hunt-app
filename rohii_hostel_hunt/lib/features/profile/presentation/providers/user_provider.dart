@@ -1,8 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rohii_hostel_hunt/core/network/api_error.dart';
 import 'package:rohii_hostel_hunt/core/network/api_provider.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
-import 'package:rohii_hostel_hunt/core/network/list_body.dart';
-import 'package:rohii_hostel_hunt/core/observability/error_reporter.dart';
 
 class UserProfile {
   final String id;
@@ -15,12 +14,15 @@ class UserProfile {
   final String? dateOfBirth;    // ISO date string e.g. "1999-05-21"
   final String? profilePhotoUrl;
 
-  // Profile Stats
+  // Profile Stats (from GET /dashboard/student/stats/)
   final int profileCompletePercent;
   final int bookingsCount;
   final int savedHostelsCount;
   final int reviewsCount; // Placeholder, not supported by backend
   final List<dynamic> recentBookings;
+
+  /// False when the counts could not be loaded: show "-", never a made-up 0.
+  final bool statsAvailable;
 
   UserProfile({
     required this.id,
@@ -37,17 +39,19 @@ class UserProfile {
     this.savedHostelsCount = 0,
     this.reviewsCount = 0,
     this.recentBookings = const [],
+    this.statsAvailable = false,
   });
 
+  /// Reads the `data` object of GET /auth/me/ (and of the PATCH and photo replies).
   factory UserProfile.fromJson(Map<String, dynamic> json, {String? baseUrl}) {
-    // Build absolute URL for profile_photo if it's a relative path
+    // The server sends profile_photo_url: a Cloudinary https URL. An older record may still carry
+    // a path on the server's own disk, which needs the server root in front of it.
     String? photoUrl;
-    final rawPhoto = json['profile_photo'] as String?;
+    final rawPhoto = (json['profile_photo_url'] ?? json['profile_photo']) as String?;
     if (rawPhoto != null && rawPhoto.isNotEmpty) {
       if (rawPhoto.startsWith('http')) {
         photoUrl = rawPhoto;
       } else {
-        // Relative path from Django — prepend server root
         final root = baseUrl ?? ApiService.baseUrl.replaceAll(RegExp(r'/api(?:/v1)?'), '');
         photoUrl = '$root$rawPhoto';
       }
@@ -64,10 +68,6 @@ class UserProfile {
       dateOfBirth: json['date_of_birth'] as String?,
       profilePhotoUrl: photoUrl,
       profileCompletePercent: _calculateProfileCompletion(json),
-      bookingsCount: json['bookings_count'] as int? ?? 0,
-      savedHostelsCount: json['saved_hostels_count'] as int? ?? 0,
-      reviewsCount: 0, // Placeholder
-      recentBookings: json['recent_bookings'] as List<dynamic>? ?? [],
     );
   }
 
@@ -86,103 +86,102 @@ class UserProfile {
   }
 
   static String _formatDate(String? isoString) {
-    if (isoString == null || isoString.isEmpty) return 'Member';
-    try {
-      final date = DateTime.parse(isoString);
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return 'Joined ${months[date.month - 1]} ${date.year}';
-    } catch (_) {
-      return 'Member';
-    }
+    final date = DateTime.tryParse(isoString ?? '');
+    if (date == null) return 'Member';
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return 'Joined ${months[date.month - 1]} ${date.year}';
   }
 
-  /// Returns a copy with updated fields — used by provider after patch/upload
-  UserProfile copyWith({
-    String? name,
-    String? email,
-    String? phone,
-    String? gender,
-    String? dateOfBirth,
-    String? profilePhotoUrl,
-    int? profileCompletePercent,
+  /// This profile with the counts from the student stats reply.
+  UserProfile withStats(Map<String, dynamic> stats) {
+    final bookingStats = stats['booking_stats'];
+    final recent = stats['recent_activity'];
+    return _copy(
+      bookingsCount: bookingStats is Map ? (bookingStats['total'] as num?)?.toInt() ?? 0 : 0,
+      savedHostelsCount: (stats['wishlist_count'] as num?)?.toInt() ?? 0,
+      recentBookings: recent is List ? recent : const [],
+      statsAvailable: true,
+    );
+  }
+
+  /// A fresh profile from a server reply, keeping the counts already loaded.
+  UserProfile withProfileJson(Map<String, dynamic> json) {
+    return UserProfile.fromJson(json)._copy(
+      bookingsCount: bookingsCount,
+      savedHostelsCount: savedHostelsCount,
+      recentBookings: recentBookings,
+      statsAvailable: statsAvailable,
+    );
+  }
+
+  UserProfile _copy({
+    required int bookingsCount,
+    required int savedHostelsCount,
+    required List<dynamic> recentBookings,
+    required bool statsAvailable,
   }) {
     return UserProfile(
       id: id,
-      email: email ?? this.email,
-      name: name ?? this.name,
-      phone: phone ?? this.phone,
+      email: email,
+      name: name,
+      phone: phone,
       isVerified: isVerified,
       joinedAt: joinedAt,
-      gender: gender ?? this.gender,
-      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
-      profilePhotoUrl: profilePhotoUrl ?? this.profilePhotoUrl,
-      profileCompletePercent: profileCompletePercent ?? this.profileCompletePercent,
+      gender: gender,
+      dateOfBirth: dateOfBirth,
+      profilePhotoUrl: profilePhotoUrl,
+      profileCompletePercent: profileCompletePercent,
       bookingsCount: bookingsCount,
       savedHostelsCount: savedHostelsCount,
       reviewsCount: reviewsCount,
       recentBookings: recentBookings,
+      statsAvailable: statsAvailable,
     );
   }
 }
 
+/// The reason a failed [ApiResponse] gives, as an [ApiError] (always has words).
+ApiError _errorOf(ApiResponse response) {
+  return response.error ??
+      ApiError(
+        kind: ApiErrorKind.unexpected,
+        statusCode: response.statusCode,
+        message: response.message.isEmpty ? ApiError.unexpected.message : response.message,
+      );
+}
+
 class UserProfileNotifier extends AsyncNotifier<UserProfile?> {
-  late final ApiService _api;
+  // Not stored in a field: build() runs again on every refresh, and a `late final` field would
+  // throw when assigned a second time.
+  ApiService get _api => ref.read(apiServiceProvider);
 
   @override
-  Future<UserProfile?> build() async {
-    _api = ref.read(apiServiceProvider);
-    return _fetchProfile();
-  }
+  Future<UserProfile?> build() => _fetchProfile();
 
   Future<UserProfile?> _fetchProfile() async {
-    final isLoggedIn = await _api.isLoggedIn();
-    if (!isLoggedIn) return null;
+    if (!await _api.isLoggedIn()) return null;
 
     final response = await _api.authGetRaw('/auth/me/');
     if (!response.success) {
-      throw Exception(response.message);
+      throw ApiException(response.error ?? ApiError.unexpected);
     }
 
     final body = response.body;
-    if (body is Map<String, dynamic>) {
-      final data = body['data'] ?? body;
-      if (data is Map<String, dynamic>) {
-
-        // Fetch extra stats since they aren't in /auth/me/
-        int bookingsCount = 0;
-        int savedCount = 0;
-        List<dynamic> recentBookings = [];
-
-        try {
-          // Paginated: only the first page of items arrives, but `count` is the real total.
-          final bookingsRes = await _api.authGetRaw('/bookings/my/');
-          if (bookingsRes.success) {
-            bookingsCount = countFromBody(bookingsRes.body);
-            recentBookings = itemsFromBody(bookingsRes.body).take(5).toList();
-          }
-        } catch (e, st) {
-          errorReporter.report(e, st, hint: 'profile: my-bookings stats');
-        }
-
-        try {
-          final savedRes = await _api.authGetRaw('/wishlist/');
-          if (savedRes.success) {
-            savedCount = countFromBody(savedRes.body, keys: ['wishlist']);
-          }
-        } catch (e, st) {
-          errorReporter.report(e, st, hint: 'profile: saved hostels stats');
-        }
-
-        final enrichedData = Map<String, dynamic>.from(data)
-          ..['bookings_count'] = bookingsCount
-          ..['saved_hostels_count'] = savedCount
-          ..['recent_bookings'] = recentBookings;
-
-        return UserProfile.fromJson(enrichedData);
-      }
+    final data = body is Map<String, dynamic> ? (body['data'] ?? body) : null;
+    if (data is! Map<String, dynamic>) {
+      throw ApiException(ApiError.unreadable(response.statusCode));
     }
 
-    return null;
+    final profile = UserProfile.fromJson(data);
+
+    // One cheap request for all the counts and the recent bookings. If it fails the profile still
+    // opens and says the counts are unavailable (ApiService has already noted why).
+    final stats = await _api.authGetRaw('/dashboard/student/stats/');
+    final statsBody = stats.body;
+    if (stats.success && statsBody is Map<String, dynamic>) {
+      return profile.withStats(statsBody);
+    }
+    return profile;
   }
 
   Future<void> refresh() async {
@@ -190,42 +189,60 @@ class UserProfileNotifier extends AsyncNotifier<UserProfile?> {
     state = await AsyncValue.guard(_fetchProfile);
   }
 
-  /// PATCH /auth/me/ with text field updates.
-  /// Returns an error message string on failure, null on success.
-  Future<String?> updateProfile(Map<String, dynamic> fields) async {
-    final response = await _api.authPatch('/auth/me/', fields);
-    if (!response.success) return response.message;
+  /// Re-reads the profile without showing a spinner. If it fails, what is on screen stays.
+  Future<void> reloadQuietly() async {
+    final fresh = await AsyncValue.guard(_fetchProfile);
+    if (fresh.hasValue && fresh.value != null) state = fresh;
+  }
 
-    // Merge updated fields into local state immediately (optimistic)
+  /// PATCH /auth/me/ with text field updates.
+  /// Returns null on success, or the reason it failed.
+  Future<ApiError?> updateProfile(Map<String, dynamic> fields) async {
+    final response = await _api.authPatch('/auth/me/', fields);
+    if (!response.success) return _errorOf(response);
+
     final current = state.valueOrNull;
-    if (current != null && response.data != null) {
-      final d = response.data!;
-      state = AsyncData(current.copyWith(
-        name: d['display_name'] as String?,
-        email: d['email'] as String?,
-        phone: d['phone_number'] as String?,
-        gender: d['gender'] as String?,
-        dateOfBirth: d['date_of_birth'] as String?,
-      ));
+    final data = response.data;
+    if (current != null && data != null) {
+      state = AsyncData(current.withProfileJson(data));
     }
     return null;
   }
 
-  /// POST /auth/me/photo/ — multipart file upload.
-  /// Returns an error message string on failure, null on success.
-  Future<String?> uploadPhoto(List<int> bytes, String filename, String mimeType) async {
+  /// POST /auth/me/photo/ (multipart). Returns null on success, or the reason it failed; a
+  /// cancelled upload comes back as an error of kind [ApiErrorKind.cancelled].
+  Future<ApiError?> uploadPhoto(
+    List<int> bytes,
+    String filename,
+    String mimeType, {
+    void Function(double progress)? onProgress,
+    Future<void>? cancel,
+  }) async {
     final response = await _api.authMultipartPost(
       '/auth/me/photo/',
       fieldName: 'profile_photo',
       bytes: bytes,
       filename: filename,
       mimeType: mimeType,
+      onProgress: onProgress,
+      cancel: cancel,
     );
-    if (!response.success) return response.message;
+    if (!response.success) return _errorOf(response);
 
-    // Refresh full profile to get the updated photo URL from server
-    await refresh();
+    // Show the new photo straight away from the reply, then re-read the profile from the server.
+    final current = state.valueOrNull;
+    final data = response.data;
+    if (current != null && data != null) {
+      state = AsyncData(current.withProfileJson(data));
+    }
+    await reloadQuietly();
     return null;
+  }
+
+  /// Forgets the saved login and the cached profile.
+  Future<void> signOut() async {
+    await _api.clearTokens();
+    state = const AsyncData(null);
   }
 }
 

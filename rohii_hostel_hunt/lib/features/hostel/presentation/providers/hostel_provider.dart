@@ -1,3 +1,5 @@
+import 'package:rohii_hostel_hunt/core/network/api_error.dart';
+import 'package:rohii_hostel_hunt/core/observability/error_reporter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
 import 'package:rohii_hostel_hunt/features/location/presentation/providers/location_riverpod_provider.dart';
@@ -85,7 +87,7 @@ class HostelListNotifier extends AsyncNotifier<List<Hostel>> {
     final response = await ref.read(apiServiceProvider).getRaw('/hostels/', queryParams: params);
 
     if (!response.success) {
-      throw Exception(response.message);
+      throw response.toException();
     }
 
     final body = response.body;
@@ -98,7 +100,7 @@ class HostelListNotifier extends AsyncNotifier<List<Hostel>> {
       results = body;
       _hasMore = false;
     } else {
-      throw Exception('Unexpected response format.');
+      throw ApiException(ApiError.unreadable(response.statusCode));
     }
 
     var hostels = results.map((json) => Hostel.fromJson(json as Map<String, dynamic>)).toList();
@@ -139,9 +141,10 @@ class HostelListNotifier extends AsyncNotifier<List<Hostel>> {
         final seen = current.map((h) => h.id).toSet();
         state = AsyncData([...current, ...more.where((h) => seen.add(h.id))]);
         _publishPaging();
-      } catch (e) {
+      } catch (e, st) {
         if (generation != _generation) return;
-        _publishPaging(error: e.toString().replaceFirst('Exception: ', ''));
+        if (e is! ApiException) errorReporter.report(e, st, hint: 'hostel list: load more');
+        _publishPaging(error: userMessageOf(e));
       } finally {
         if (generation == _generation) _loadingMore = null;
       }
@@ -218,7 +221,7 @@ final localitiesProvider = FutureProvider.family<List<LocalityCount>, String>(
     );
 
     if (!response.success) {
-      throw Exception(response.message);
+      throw response.toException();
     }
 
     final body = response.body;
@@ -245,14 +248,14 @@ class HostelDetailNotifier extends FamilyAsyncNotifier<Hostel, int> {
     final response = await ref.read(apiServiceProvider).getRaw('/hostels/$hostelId/');
 
     if (!response.success) {
-      throw Exception(response.message);
+      throw response.toException();
     }
 
     final body = response.body;
     if (body is Map<String, dynamic>) {
       return Hostel.fromJson(body);
     } else {
-      throw Exception('Unexpected response format.');
+      throw ApiException(ApiError.unreadable(response.statusCode));
     }
   }
 

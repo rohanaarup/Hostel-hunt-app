@@ -1,3 +1,5 @@
+import 'package:rohii_hostel_hunt/core/observability/error_reporter.dart';
+import 'package:rohii_hostel_hunt/core/network/api_error.dart';
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
@@ -202,11 +204,12 @@ class SearchNotifier extends Notifier<SearchStateData> {
         status: hostels.isEmpty ? SearchStatus.empty : SearchStatus.results,
         recentSearches: _addToRecentList(searchQuery),
       );
-    } catch (e) {
+    } catch (e, st) {
       debugLog('[SearchNotifier] Search error: ${e.runtimeType}');
+      errorReporter.report(e, st, hint: 'search: perform');
       state = state.copyWith(
         status: SearchStatus.error,
-        errorMessage: 'Something went wrong. Please try again.',
+        errorMessage: userMessageOf(e),
       );
     }
   }

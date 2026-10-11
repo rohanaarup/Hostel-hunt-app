@@ -1,3 +1,5 @@
+import 'package:rohii_hostel_hunt/core/observability/error_reporter.dart';
+import 'package:rohii_hostel_hunt/core/network/api_error.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -230,22 +232,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
           backgroundColor: AppColors.success,
         ),
       );
-    } catch (e) {
-      final errorMsg = e.toString();
-      if (errorMsg.contains('SocketException') ||
-          errorMsg.contains('HandshakeException')) {
-        setState(() {
-          _errorMessage =
-              'Cannot connect to server. Check if backend is running.';
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _errorMessage = 'OTP send failed. Please try again.';
-          _isLoading = false;
-        });
-      }
+    } catch (e, st) {
       debugLog('OTP send failed');
+      errorReporter.report(e, st, hint: 'auth: send otp (forgot password)');
+      setState(() {
+        _errorMessage = userMessageOf(e);
+        _isLoading = false;
+      });
     }
   }
 
@@ -288,9 +281,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
           _isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (e, st) {
+      errorReporter.report(e, st, hint: 'auth: verify otp (forgot password)');
       setState(() {
-        _errorMessage = 'Verification failed. Please try again.';
+        _errorMessage = userMessageOf(e);
         _isLoading = false;
       });
     }
@@ -344,9 +338,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
       );
       await Future.delayed(const Duration(seconds: 1));
       if (mounted) context.go('/login');
-    } catch (e) {
+    } catch (e, st) {
+      errorReporter.report(e, st, hint: 'auth: reset password');
       setState(() {
-        _errorMessage = 'Reset failed. Please try again.';
+        _errorMessage = userMessageOf(e);
         _isLoading = false;
       });
     }

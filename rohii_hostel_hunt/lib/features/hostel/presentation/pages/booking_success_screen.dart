@@ -5,7 +5,9 @@ import 'package:rohii_hostel_hunt/core/network/api_service.dart';
 import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
 import 'package:rohii_hostel_hunt/features/hostel/domain/models/room.dart';
+import 'package:rohii_hostel_hunt/features/hostel/presentation/providers/booking_contact.dart';
 import 'package:rohii_hostel_hunt/features/hostel/presentation/providers/booking_provider.dart';
+import 'package:rohii_hostel_hunt/features/hostel/presentation/widgets/contact_details_dialog.dart';
 import 'package:rohii_hostel_hunt/features/profile/presentation/providers/user_provider.dart';
 import 'package:rohii_hostel_hunt/features/auth/presentation/pages/login_page.dart';
 import 'package:rohii_hostel_hunt/features/payments/presentation/pages/payment_screen.dart';
@@ -48,8 +50,34 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
     });
   }
 
-  void _submitBooking() {
-    final userProfile = ref.read(userProvider).valueOrNull;
+  /// Who the booking is for. Waits for the profile to load (it used to read it before it had, and
+  /// send an empty name and phone), and asks for what is missing. Null means: do not book.
+  Future<ContactReady?> _contactForBooking({bool freshProfile = false}) async {
+    final loggedIn = await _api.isLoggedIn();
+    if (!mounted) return null;
+
+    // A profile cached before this person logged in, or one that failed to load, is stale.
+    if (freshProfile || ref.read(userProvider).hasError) ref.invalidate(userProvider);
+
+    final BookingContact contact = loggedIn
+        ? await resolveBookingContact(ref.read(userProvider.future))
+        : const ContactIncomplete();
+    if (!mounted) return null;
+
+    switch (contact) {
+      case ContactReady():
+        return contact;
+      case ContactUnavailable():
+        _setOnlineError(contact.message);
+        return null;
+      case ContactIncomplete():
+        return askForContact(context, name: contact.name, phone: contact.phone);
+    }
+  }
+
+  Future<void> _submitBooking() async {
+    final contact = await _contactForBooking();
+    if (contact == null || !mounted) return;
     ref.read(bookingProvider.notifier).submitBooking(
       hostelId: widget.hostel.id,
       roomId: widget.room.roomId,
@@ -58,8 +86,8 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
       roomNumber: widget.room.roomNumber,
       bedNumber: widget.bedNumber,
       checkInDate: DateTime.now().toIso8601String().split('T')[0],
-      studentName: userProfile?.name ?? '',
-      studentPhone: userProfile?.phone ?? '',
+      studentName: contact.name,
+      studentPhone: contact.phone,
     );
   }
 
@@ -98,9 +126,11 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
       }
     }
 
+    final contact = await _contactForBooking(freshProfile: !loggedIn);
+    if (contact == null || !mounted) return;
+
     setState(() => _isOnlineFlow = true);
 
-    final userProfile = ref.read(userProvider).valueOrNull;
     await ref.read(bookingProvider.notifier).submitBooking(
       hostelId: widget.hostel.id,
       roomId: widget.room.roomId,
@@ -109,8 +139,8 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
       roomNumber: widget.room.roomNumber,
       bedNumber: widget.bedNumber,
       checkInDate: DateTime.now().toIso8601String().split('T')[0],
-      studentName: userProfile?.name ?? '',
-      studentPhone: userProfile?.phone ?? '',
+      studentName: contact.name,
+      studentPhone: contact.phone,
       paymentMode: 'online',
     );
 

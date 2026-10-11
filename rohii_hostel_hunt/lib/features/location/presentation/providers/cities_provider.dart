@@ -1,3 +1,4 @@
+import 'package:rohii_hostel_hunt/core/network/api_error.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/core/network/api_provider.dart';
 
@@ -31,10 +32,10 @@ class CityOption {
 final citiesProvider = FutureProvider<List<CityOption>>((ref) async {
   final response = await ref.read(apiServiceProvider).getRaw('/cities/');
   if (!response.success) {
-    throw Exception(response.message.isEmpty ? 'Could not load cities (HTTP ${response.statusCode}).' : response.message);
+    throw response.toException();
   }
   final body = response.body;
-  if (body is! List) throw Exception('Unexpected response format.');
+  if (body is! List) throw ApiException(ApiError.unreadable(response.statusCode));
   return body
       .whereType<Map<String, dynamic>>()
       .map(CityOption.fromJson)

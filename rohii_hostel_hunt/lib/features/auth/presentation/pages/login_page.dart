@@ -1,3 +1,5 @@
+import 'package:rohii_hostel_hunt/core/observability/error_reporter.dart';
+import 'package:rohii_hostel_hunt/core/network/api_error.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -184,9 +186,10 @@ class _LoginPageState extends ConsumerState<LoginPage>
       } else {
         context.go('/home');
       }
-    } catch (e) {
+    } catch (e, st) {
+      errorReporter.report(e, st, hint: 'auth: login');
       setState(() {
-        _errorMessage = 'Login failed. Please try again.';
+        _errorMessage = userMessageOf(e);
         _isLoading = false;
       });
     }

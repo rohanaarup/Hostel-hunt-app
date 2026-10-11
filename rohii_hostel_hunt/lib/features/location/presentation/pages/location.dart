@@ -1,3 +1,4 @@
+import 'package:rohii_hostel_hunt/core/network/api_error.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -170,7 +171,7 @@ class _LocationScreenState extends ConsumerState<LocationScreen>
               ),
               error: (e, _) => _CitiesError(
                 isDark: isDark,
-                message: e.toString().replaceFirst('Exception: ', ''),
+                message: userMessageOf(e),
                 onRetry: () => ref.invalidate(citiesProvider),
               ),
               data: (cities) {
@@ -714,7 +715,7 @@ class _AreasSection extends ConsumerWidget {
           ),
           child: localitiesAsync.when(
             loading: () => _buildSkeletonList(isDark),
-            error: (e, _) => _buildErrorState(isDark, e.toString()),
+            error: (e, _) => _buildErrorState(isDark, userMessageOf(e)),
             data: (localities) {
               // Filter by search query
               final filtered = query.isEmpty
@@ -796,7 +797,7 @@ class _AreasSection extends ConsumerWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              error.replaceFirst('Exception: ', ''),
+              error,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.textSecondary(isDark),

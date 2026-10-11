@@ -1,3 +1,4 @@
+import 'package:rohii_hostel_hunt/core/network/api_error.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -160,7 +161,7 @@ class _Body extends ConsumerWidget {
       ),
       error: (err, _) => _ErrorView(
         isDark: isDark,
-        message: err.toString(),
+        message: userMessageOf(err),
         onRetry: () => ref.read(dashboardProvider.notifier).refresh(),
       ),
       data: (stats) => RefreshIndicator(
@@ -949,11 +950,10 @@ class _ActiveBookingCard extends StatelessWidget {
 
   String? _fmt(String? iso) {
     if (iso == null) return null;
-    try {
-      final dt = DateTime.parse(iso);
-      const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      return '${dt.day} ${m[dt.month - 1]}';
-    } catch (_) { return iso; }
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return iso;
+    const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${dt.day} ${m[dt.month - 1]}';
   }
 }
 

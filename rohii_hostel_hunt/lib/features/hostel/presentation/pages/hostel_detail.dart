@@ -2,6 +2,8 @@
 // Hostel Hunt — Premium Hostel Detail Page (FIXED)
 // ─────────────────────────────────────────────────────────
 
+import 'package:rohii_hostel_hunt/core/observability/error_reporter.dart';
+import 'package:rohii_hostel_hunt/core/network/api_error.dart';
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -108,15 +110,16 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
       } else {
         setState(() {
           _hasDetailError = true;
-          _detailErrorMessage = 'Unexpected response format.';
+          _detailErrorMessage = ApiError.unreadable(response.statusCode).message;
           _isDetailLoading = false;
         });
       }
-    } catch (e) {
+    } catch (e, st) {
+      errorReporter.report(e, st, hint: 'hostel detail: load');
       if (!mounted) return;
       setState(() {
         _hasDetailError = true;
-        _detailErrorMessage = 'Failed to load details.';
+        _detailErrorMessage = userMessageOf(e);
         _isDetailLoading = false;
       });
     }
