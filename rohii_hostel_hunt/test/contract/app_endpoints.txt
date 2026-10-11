@@ -1,0 +1,30 @@
+# Copy of the 'app' lines of the backend repo's backend/contract/endpoints.txt.
+# Update both together. test/contract/api_paths_test.dart checks this list against the Dart
+# sources, and the app CI compares it with the backend's copy (warning only).
+
+app   POST   /auth/send-otp/
+app   POST   /auth/verify-otp/
+app   POST   /auth/register/
+app   POST   /auth/login/
+app   POST   /auth/reset-password/
+app   POST   /auth/token/refresh/
+app   GET    /auth/me/
+app   PATCH  /auth/me/            | expected-fail: view allows GET only; the app PATCHes profile edits (405)
+app   POST   /auth/me/photo/      | expected-fail: route does not exist; the app uploads the profile photo here (404)
+app   GET    /hostels/
+app   GET    /hostels/{id}/
+app   GET    /hostels/localities/
+app   POST   /bookings/
+app   GET    /bookings/my-bookings/   | expected-fail: route does not exist; the real one is /bookings/my/ (404)
+app   GET    /favorites/hostels/      | expected-fail: route does not exist; the real one is /wishlist/ (404)
+app   GET    /dashboard/student/stats/
+app   POST   /payments/create-order/
+app   POST   /payments/initiate-upi-intent/
+app   POST   /payments/initiate-card-checkout/
+app   POST   /payments/verify/
+app   GET    /payments/status/{id}/
+app   GET    /hostels/?city
+app   GET    /hostels/?locality
+app   GET    /hostels/?gender_type
+app   GET    /hostels/?search         | expected-fail: backend ignores the search parameter
+app   GET    /hostels/?amenity        | expected-fail: backend ignores the amenity parameter

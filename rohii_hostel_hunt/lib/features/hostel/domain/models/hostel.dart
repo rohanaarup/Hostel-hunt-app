@@ -203,7 +203,8 @@ class Hostel {
       address: json['address'] as String? ?? '',
       pincode: json['pincode'] as String? ?? '',
       hostelType: json['gender_type'] as String? ?? 'mixed',
-      pricePerMonth: _parseDouble(json['price_per_month']),
+      // The list endpoint sends the starting price as `price_from`; detail sends `price_per_month`.
+      pricePerMonth: _parseDouble(json['price_per_month'] ?? json['price_from']),
       securityDeposit: _parseDouble(json['security_deposit']),
       amenities: (json['amenities'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
       occupancyTypes: (json['occupancy_types'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
@@ -228,9 +229,17 @@ class Hostel {
       imagesList: ((json['media'] ?? json['media_items']) as List<dynamic>?)
               ?.map((e) => HostelImage.fromJson(e as Map<String, dynamic>))
               .toList() ??
-          [],
+          _coverOnly(json['cover_image']),
       isLocal: false,
     );
+  }
+
+  /// The list endpoint sends one `cover_image` URL instead of a media array.
+  static List<HostelImage> _coverOnly(dynamic cover) {
+    if (cover is String && cover.isNotEmpty) {
+      return [HostelImage(imageUrl: cover)];
+    }
+    return const [];
   }
 
   /// Helper to parse DRF's decimal fields (returned as String like "5000.00").
