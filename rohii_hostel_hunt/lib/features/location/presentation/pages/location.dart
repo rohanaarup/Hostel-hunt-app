@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/features/location/presentation/providers/location_riverpod_provider.dart';
 import 'package:rohii_hostel_hunt/features/hostel/presentation/providers/hostel_provider.dart';
@@ -20,21 +21,33 @@ import 'package:rohii_hostel_hunt/core/theme/theme_provider.dart';
 //  5. Areas section — shows after city tap, fetches from API
 
 // Only the picture on a city tile; which cities exist comes from the server.
-const Map<String, IconData> _cityIcons = {
-  'mumbai': Icons.location_city_rounded,
-  'delhi': Icons.account_balance_rounded,
-  'bengaluru': Icons.corporate_fare_rounded,
-  'hyderabad': Icons.domain_rounded,
-  'chandigarh': Icons.holiday_village_rounded,
-  'ahmedabad': Icons.museum_rounded,
-  'pune': Icons.apartment_rounded,
-  'chennai': Icons.temple_hindu_rounded,
-  'kolkata': Icons.fort_rounded,
-  'kochi': Icons.sailing_rounded,
+// Lucide icons (lucide_icons_flutter): a landmark for each well-known city, a map pin for the rest.
+// Each city has a light-stroke icon for the idle tile and a regular-stroke one when selected.
+class _CityIcon {
+  final IconData idle;
+  final IconData selected;
+  const _CityIcon(this.idle, this.selected);
+}
+
+const _fallbackCityIcon = _CityIcon(LucideIcons.mapPin200, LucideIcons.mapPin);
+
+const Map<String, _CityIcon> _cityIcons = {
+  'mumbai': _CityIcon(LucideIcons.building2200, LucideIcons.building2),
+  'delhi': _CityIcon(LucideIcons.landmark200, LucideIcons.landmark),
+  'bengaluru': _CityIcon(LucideIcons.cpu200, LucideIcons.cpu),
+  'hyderabad': _CityIcon(LucideIcons.castle200, LucideIcons.castle),
+  'chandigarh': _CityIcon(LucideIcons.trees200, LucideIcons.trees),
+  'ahmedabad': _CityIcon(LucideIcons.library200, LucideIcons.library),
+  'pune': _CityIcon(LucideIcons.graduationCap200, LucideIcons.graduationCap),
+  'chennai': _CityIcon(LucideIcons.waves200, LucideIcons.waves),
+  'kolkata': _CityIcon(LucideIcons.trainFront200, LucideIcons.trainFront),
+  'kochi': _CityIcon(LucideIcons.sailboat200, LucideIcons.sailboat),
 };
 
-IconData _iconForCity(CityOption city) =>
-    _cityIcons[city.slug.split('-').first] ?? Icons.location_city_rounded;
+IconData _iconForCity(CityOption city, {required bool selected}) {
+  final icon = _cityIcons[city.slug.split('-').first] ?? _fallbackCityIcon;
+  return selected ? icon.selected : icon.idle;
+}
 
 class LocationScreen extends ConsumerStatefulWidget {
   const LocationScreen({super.key});
@@ -520,8 +533,8 @@ class _CityTile extends StatelessWidget {
               clipBehavior: Clip.none,
               children: [
                 Icon(
-                  _iconForCity(city),
-                  size: 28,
+                  _iconForCity(city, selected: isSelected),
+                  size: 30,
                   color: isSelected
                       ? primaryColor
                       : AppColors.textSecondary(isDark),
