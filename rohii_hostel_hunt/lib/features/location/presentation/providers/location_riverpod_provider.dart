@@ -1,9 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:rohii_hostel_hunt/features/location/domain/models/location_model.dart';
+import 'package:rohii_hostel_hunt/core/observability/debug_log.dart';
+import 'package:rohii_hostel_hunt/core/observability/error_reporter.dart';
 
 /// ─────────────────────────────────────────────────────────
 /// Hostel Hunt — Location Provider (Riverpod)
@@ -89,7 +90,9 @@ class LocationNotifier extends Notifier<LocationState> {
           selectedLocality: locality,
         );
       }
-    } catch (_) {}
+    } catch (e, st) {
+      errorReporter.report(e, st, hint: 'location: load saved city');
+    }
   }
 
   Future<void> _persist() async {
@@ -101,7 +104,9 @@ class LocationNotifier extends Notifier<LocationState> {
       } else {
         await prefs.remove(_localityKey);
       }
-    } catch (_) {}
+    } catch (e, st) {
+      errorReporter.report(e, st, hint: 'location: save city');
+    }
   }
 
   /// Select city only — clears locality so we show all hostels in city.
@@ -144,7 +149,7 @@ class LocationNotifier extends Notifier<LocationState> {
 
   /// Detect current GPS location and auto-set city.
   Future<void> detectCurrentLocation() async {
-    debugPrint('[LocationNotifier] detectCurrentLocation() called');
+    debugLog('[LocationNotifier] detectCurrentLocation() called');
     state = state.copyWith(
       isDetectingLocation: true,
       clearLocationError: true,
@@ -216,7 +221,7 @@ class LocationNotifier extends Notifier<LocationState> {
         );
       }
     } catch (e) {
-      debugPrint('[LocationNotifier] ERROR: $e');
+      debugLog('[LocationNotifier] ERROR: ${e.runtimeType}');
       state = state.copyWith(
         locationError: 'Could not detect location. Tap to retry.',
         isDetectingLocation: false,

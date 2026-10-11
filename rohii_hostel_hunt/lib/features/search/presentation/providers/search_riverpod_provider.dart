@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
 import 'package:rohii_hostel_hunt/core/network/api_provider.dart';
+import 'package:rohii_hostel_hunt/core/observability/debug_log.dart';
 
 /// ─────────────────────────────────────────────────────────
 /// Hostel Hunt — Search Provider (Riverpod)
@@ -199,7 +199,7 @@ class SearchNotifier extends Notifier<SearchStateData> {
         recentSearches: _addToRecentList(searchQuery),
       );
     } catch (e) {
-      debugPrint('[SearchNotifier] Search error: $e');
+      debugLog('[SearchNotifier] Search error: ${e.runtimeType}');
       state = state.copyWith(
         status: SearchStatus.error,
         errorMessage: 'Something went wrong. Please try again.',

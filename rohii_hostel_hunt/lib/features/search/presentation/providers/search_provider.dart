@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
+import 'package:rohii_hostel_hunt/core/observability/debug_log.dart';
 
 /// ─────────────────────────────────────────────────────────
 /// Hostel Hunt — Search Provider
@@ -167,7 +168,7 @@ class SearchProvider extends ChangeNotifier {
     } catch (e) {
       _state = SearchState.error;
       _errorMessage = 'Something went wrong. Please try again.';
-      debugPrint('[SearchProvider] Search error: $e');
+      debugLog('[SearchProvider] Search error: ${e.runtimeType}');
     }
 
     notifyListeners();

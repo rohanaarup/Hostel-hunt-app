@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/core/network/api_provider.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
+import 'package:rohii_hostel_hunt/core/observability/error_reporter.dart';
 
 class UserProfile {
   final String id;
@@ -137,7 +138,6 @@ class UserProfileNotifier extends AsyncNotifier<UserProfile?> {
     if (!isLoggedIn) return null;
 
     final response = await _api.authGetRaw('/auth/me/');
-    print('[USER_PROVIDER] auth/me response: ${response.statusCode} ${response.success} ${response.message} ${response.body}');
     if (!response.success) {
       throw Exception(response.message);
     }
@@ -159,14 +159,18 @@ class UserProfileNotifier extends AsyncNotifier<UserProfile?> {
             bookingsCount = list.length;
             recentBookings = list.take(5).toList();
           }
-        } catch (_) {}
+        } catch (e, st) {
+          errorReporter.report(e, st, hint: 'profile: my-bookings stats');
+        }
 
         try {
           final savedRes = await _api.authGetRaw('/favorites/hostels/');
           if (savedRes.success && savedRes.body is List) {
             savedCount = (savedRes.body as List).length;
           }
-        } catch (_) {}
+        } catch (e, st) {
+          errorReporter.report(e, st, hint: 'profile: saved hostels stats');
+        }
 
         final enrichedData = Map<String, dynamic>.from(data)
           ..['bookings_count'] = bookingsCount

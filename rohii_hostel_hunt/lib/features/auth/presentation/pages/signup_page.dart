@@ -9,6 +9,7 @@ import 'package:rohii_hostel_hunt/shared/widgets/auth/auth_hero_row.dart';
 import 'package:rohii_hostel_hunt/shared/widgets/auth/auth_input_field.dart';
 import 'package:rohii_hostel_hunt/shared/widgets/auth/auth_gradient_button.dart';
 import 'package:rohii_hostel_hunt/shared/widgets/auth/decorative_auth_footer.dart';
+import 'package:rohii_hostel_hunt/core/observability/debug_log.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -307,7 +308,7 @@ class _SignupPageState extends State<SignupPage>
           _isLoading = false;
         });
       }
-      debugPrint('OTP send error: $errorMsg');
+      debugLog('OTP send failed');
     }
   }
 

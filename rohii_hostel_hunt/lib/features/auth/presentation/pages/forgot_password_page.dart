@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
 import 'dart:async';
+import 'package:rohii_hostel_hunt/core/observability/debug_log.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -244,7 +245,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
           _isLoading = false;
         });
       }
-      debugPrint('OTP send error: $errorMsg');
+      debugLog('OTP send failed');
     }
   }
 

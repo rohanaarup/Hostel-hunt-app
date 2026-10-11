@@ -158,9 +158,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
           tokens['access'] as String,
           tokens['refresh'] as String,
         );
-        debugPrint(
-          '[LOGIN] Tokens saved — access: ${tokens['access']?.toString().substring(0, 20)}...',
-        );
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(
           'user_id',
