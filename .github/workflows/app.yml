@@ -38,7 +38,8 @@ jobs:
       # count at the time this was added (64). Lower the limit whenever warnings are fixed.
       - name: Analyze
         run: |
-          flutter analyze --no-fatal-infos --no-fatal-warnings | tee analyze.txt
+          # 2>&1: the summary line is written to stderr.
+          flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee analyze.txt
           # The summary line can follow a carriage-return progress line, so it is not anchored
           # to the start of a line, and a missing summary fails the step.
           tr '\r' '\n' < analyze.txt > analyze.clean.txt
