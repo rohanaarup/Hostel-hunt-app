@@ -1,3 +1,4 @@
+import 'package:rohii_hostel_hunt/core/network/api_error.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -489,7 +490,7 @@ class _HomepageState extends ConsumerState<Homepage> {
 
         // ── Error state ──
         error: (error, _) => HostelListErrorState(
-          message: error.toString().replaceFirst('Exception: ', ''),
+          message: userMessageOf(error),
           isDark: isDark,
           onRetry: () => ref.read(hostelListProvider.notifier).refresh(),
         ),

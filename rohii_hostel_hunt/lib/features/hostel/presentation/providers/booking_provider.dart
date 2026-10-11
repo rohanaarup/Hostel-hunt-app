@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rohii_hostel_hunt/core/network/api_error.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
+import 'package:rohii_hostel_hunt/core/observability/error_reporter.dart';
 
 enum BookingStatus { idle, loading, success, error }
 
@@ -17,11 +19,12 @@ class BookingState {
   BookingState copyWith({
     BookingStatus? status,
     String? errorMessage,
+    bool clearError = false,
     Map<String, dynamic>? data,
   }) {
     return BookingState(
       status: status ?? this.status,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       data: data ?? this.data,
     );
   }
@@ -44,7 +47,16 @@ class BookingNotifier extends StateNotifier<BookingState> {
     String studentPhone = '',
     String paymentMode = 'offline',
   }) async {
-    state = state.copyWith(status: BookingStatus.loading, errorMessage: null);
+    // The owner sees this name and phone: a booking never goes out with either one blank.
+    if (studentName.trim().isEmpty || studentPhone.trim().isEmpty) {
+      state = state.copyWith(
+        status: BookingStatus.error,
+        errorMessage: 'Enter your name and phone number to book.',
+      );
+      return;
+    }
+
+    state = state.copyWith(status: BookingStatus.loading, clearError: true);
 
     try {
       final payload = {
@@ -76,10 +88,11 @@ class BookingNotifier extends StateNotifier<BookingState> {
           errorMessage: response.message,
         );
       }
-    } catch (e) {
+    } catch (e, st) {
+      errorReporter.report(e, st, hint: 'booking: submit');
       state = state.copyWith(
-        status: BookingStatus.error, 
-        errorMessage: e.toString(),
+        status: BookingStatus.error,
+        errorMessage: userMessageOf(e),
       );
     }
   }

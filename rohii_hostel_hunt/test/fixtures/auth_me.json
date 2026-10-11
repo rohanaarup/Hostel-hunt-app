@@ -1,0 +1,18 @@
+{
+  "data": {
+    "created_at": "2026-10-11T19:49:15.912380Z",
+    "date_of_birth": "2001-02-03",
+    "display_name": "Asha Example",
+    "email": "asha@example.test",
+    "gender": "female",
+    "is_active": true,
+    "is_verified": false,
+    "owner_id": "ea1457cc-b0e7-472a-8f5f-a98b909bb814",
+    "phone_number": "9000000009",
+    "profile_photo_url": "https://res.cloudinary.com/democloud/image/upload/v1/profiles/asha.jpg",
+    "role": "owner",
+    "updated_at": "2026-10-11T19:49:15.912676Z"
+  },
+  "message": "Success",
+  "success": true
+}

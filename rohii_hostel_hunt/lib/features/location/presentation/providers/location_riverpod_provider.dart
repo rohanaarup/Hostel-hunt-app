@@ -231,8 +231,9 @@ class LocationNotifier extends Notifier<LocationState> {
           isDetectingLocation: false,
         );
       }
-    } catch (e) {
+    } catch (e, st) {
       debugLog('[LocationNotifier] ERROR: ${e.runtimeType}');
+      errorReporter.report(e, st, hint: 'location: detect current location');
       state = state.copyWith(
         locationError: 'Could not detect location. Tap to retry.',
         isDetectingLocation: false,

@@ -1,33 +1,33 @@
-import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
-import 'package:rohii_hostel_hunt/features/hostel/domain/models/room.dart';
+import 'package:rohii_hostel_hunt/core/network/api_error.dart';
+import 'package:rohii_hostel_hunt/core/network/api_provider.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
+import 'package:rohii_hostel_hunt/features/hostel/domain/models/room.dart';
 
 final roomsProvider = FutureProvider.family<Map<int, List<Room>>, String>((ref, hostelId) async {
+  final api = ref.read(apiServiceProvider);
   final allRooms = <dynamic>[];
-  String? nextUrl = '${ApiService.baseUrl}/hostels/$hostelId/rooms/';
 
-  // DRF paginates this endpoint (10 rooms/page) — a hostel with more rooms
-  // than one page must not silently lose floors, so follow `next` until
-  // every page has been collected.
-  while (nextUrl != null) {
-    final response = await http.get(Uri.parse(nextUrl));
+  // DRF paginates this endpoint (10 rooms/page) - a hostel with more rooms
+  // than one page must not silently lose floors, so keep asking for the next
+  // page until the server says there is none.
+  const maxPages = 100;
+  for (var page = 1; page <= maxPages; page++) {
+    final response = await api.getRaw(
+      '/hostels/$hostelId/rooms/',
+      queryParams: page > 1 ? {'page': '$page'} : null,
+    );
+    if (!response.success) throw response.toException();
 
-    if (response.statusCode != 200) {
-      throw Exception('Failed to load rooms');
-    }
-
-    final body = json.decode(response.body);
-
+    final body = response.body;
     if (body is Map<String, dynamic> && body.containsKey('results')) {
       allRooms.addAll(body['results'] as List<dynamic>);
-      nextUrl = body['next'] as String?;
+      if (body['next'] == null) break;
     } else if (body is List) {
       allRooms.addAll(body);
-      nextUrl = null;
+      break;
     } else {
-      throw Exception('Unexpected response format.');
+      throw ApiException(ApiError.unreadable(response.statusCode));
     }
   }
 

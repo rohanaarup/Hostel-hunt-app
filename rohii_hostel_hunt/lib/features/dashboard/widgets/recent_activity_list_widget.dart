@@ -66,16 +66,13 @@ class _RecentActivityListWidgetState extends State<RecentActivityListWidget> {
   }
 
   String _formatDate(String iso) {
-    try {
-      final dt = DateTime.parse(iso);
-      const months = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-      ];
-      return '${dt.day} ${months[dt.month - 1]}';
-    } catch (_) {
-      return '';
-    }
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return '';
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${dt.day} ${months[dt.month - 1]}';
   }
 
   @override

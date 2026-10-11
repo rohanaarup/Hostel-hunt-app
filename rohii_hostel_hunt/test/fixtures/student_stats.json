@@ -1,0 +1,53 @@
+{
+  "active_booking": {
+    "amount": null,
+    "bed_number": null,
+    "check_in_date": null,
+    "check_out_date": null,
+    "created_at": "2026-10-11T19:49:15.915069+00:00",
+    "hostel_city": "Hyderabad",
+    "hostel_name": "Sunrise PG",
+    "id": "afbcf33d-cdb8-47ac-b519-fe2009a0c132",
+    "room_name": null,
+    "room_number": null,
+    "status": "paid"
+  },
+  "booking_stats": {
+    "cancelled": 0,
+    "confirmed": 1,
+    "paid": 1,
+    "pending": 1,
+    "rejected": 0,
+    "total": 3
+  },
+  "recent_activity": [
+    {
+      "amount": null,
+      "check_in_date": null,
+      "created_at": "2026-10-11T19:49:15.915069+00:00",
+      "hostel_city": "Hyderabad",
+      "hostel_name": "Sunrise PG",
+      "id": "afbcf33d-cdb8-47ac-b519-fe2009a0c132",
+      "status": "paid"
+    },
+    {
+      "amount": null,
+      "check_in_date": null,
+      "created_at": "2026-10-11T19:49:15.914816+00:00",
+      "hostel_city": "Hyderabad",
+      "hostel_name": "Sunrise PG",
+      "id": "f8226570-80b4-4597-8d8d-c6678d3cf712",
+      "status": "confirmed"
+    },
+    {
+      "amount": null,
+      "check_in_date": null,
+      "created_at": "2026-10-11T19:49:15.914437+00:00",
+      "hostel_city": "Hyderabad",
+      "hostel_name": "Sunrise PG",
+      "id": "7a4fb024-6001-43c1-aa34-9b1d4128eceb",
+      "status": "pending"
+    }
+  ],
+  "wishlist_count": 0
+}

@@ -14,6 +14,16 @@ class FakeApiService implements ApiService {
   /// Answer public GETs yourself. When null, /hostels/ answers from the fixture.
   RawApiResponse Function(String path, Map<String, String>? query)? onGetRaw;
 
+  /// Whether the fake user is signed in. Authenticated GETs answer from [onAuthGetRaw] when set.
+  bool loggedIn = false;
+  bool tokensCleared = false;
+  Future<RawApiResponse> Function(String path)? onAuthGetRaw;
+  Future<RawApiResponse> Function(String path, Map<String, dynamic> body)? onAuthPostRaw;
+
+  /// Answer PATCH and multipart calls yourself.
+  Future<ApiResponse> Function(String path, Map<String, dynamic> body)? onAuthPatch;
+  Future<ApiResponse> Function(String path, List<int> bytes)? onMultipart;
+
   static Map<String, dynamic> hostelsFixture() =>
       jsonDecode(File('test/fixtures/hostels_list.json').readAsStringSync())
           as Map<String, dynamic>;
@@ -40,6 +50,8 @@ class FakeApiService implements ApiService {
     Map<String, String>? queryParams,
   }) async {
     calls.add('GET $path (auth)');
+    final custom = onAuthGetRaw;
+    if (custom != null) return custom(path);
     return const RawApiResponse(
       success: false,
       message: 'Session expired. Please login again.',
@@ -53,6 +65,8 @@ class FakeApiService implements ApiService {
     Map<String, dynamic> body,
   ) async {
     calls.add('POST $path (auth)');
+    final custom = onAuthPostRaw;
+    if (custom != null) return custom(path, body);
     return const RawApiResponse(
       success: false,
       message: 'Session expired. Please login again.',
@@ -80,8 +94,12 @@ class FakeApiService implements ApiService {
   }
 
   @override
-  Future<ApiResponse> authPatch(String path, Map<String, dynamic> body) async =>
-      post(path, body);
+  Future<ApiResponse> authPatch(String path, Map<String, dynamic> body) async {
+    calls.add('PATCH $path (auth)');
+    final custom = onAuthPatch;
+    if (custom != null) return custom(path, body);
+    return post(path, body);
+  }
 
   @override
   Future<ApiResponse> authMultipartPost(
@@ -90,7 +108,14 @@ class FakeApiService implements ApiService {
     required List<int> bytes,
     required String filename,
     required String mimeType,
-  }) async => post(path, {});
+    void Function(double progress)? onProgress,
+    Future<void>? cancel,
+  }) async {
+    calls.add('POST $path (multipart)');
+    final custom = onMultipart;
+    if (custom != null) return custom(path, bytes);
+    return post(path, {});
+  }
 
   @override
   Future<void> saveTokens(String accessToken, String refreshToken) async {}
@@ -102,8 +127,10 @@ class FakeApiService implements ApiService {
   Future<String?> getRefreshToken() async => null;
 
   @override
-  Future<void> clearTokens() async {}
+  Future<void> clearTokens() async {
+    tokensCleared = true;
+  }
 
   @override
-  Future<bool> isLoggedIn() async => false;
+  Future<bool> isLoggedIn() async => loggedIn;
 }

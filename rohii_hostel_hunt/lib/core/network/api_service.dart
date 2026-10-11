@@ -4,6 +4,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:rohii_hostel_hunt/core/network/api_error.dart';
 import 'package:rohii_hostel_hunt/core/observability/debug_log.dart';
 import 'package:rohii_hostel_hunt/core/observability/error_reporter.dart';
 import 'package:rohii_hostel_hunt/core/observability/privacy.dart';
@@ -123,6 +124,27 @@ class ApiService {
     );
   }
 
+  /// Records a failed call: a breadcrumb (method, route template, status only), and a Sentry report
+  /// when the failure is one a developer should hear about (a 5xx, an unreadable reply, a 405, a bug).
+  static void _noteFailure(String method, String path, ApiError error, {Object? original, StackTrace? stack}) {
+    _crumb(method, path, error.statusCode);
+    if (error.worthReporting) {
+      errorReporter.report(
+        original ?? ApiException(error),
+        stack,
+        hint: 'api: $method ${routeTemplate(path)} -> ${error.statusCode}',
+      );
+    }
+  }
+
+  /// An exception from a call that produced no response, as an [ApiError].
+  static ApiError _errorFromException(String method, String path, Object e, StackTrace st) {
+    final error = ApiErrorReader.fromException(e);
+    debugLog('API Error ($method): ${e.runtimeType}');
+    _noteFailure(method, path, error, original: e, stack: st);
+    return error;
+  }
+
   Map<String, String> _headers({String? accessToken}) {
     final headers = <String, String>{
       'Content-Type': 'application/json',
@@ -145,15 +167,18 @@ class ApiService {
           )
           .timeout(_timeout);
       final result = ApiResponse.fromResponse(response);
-      _crumb('POST', path, result.statusCode);
+      _noteResult('POST', path, result.statusCode, result.error);
       return result;
-    } on TimeoutException {
-      _crumb('POST', path, 0);
-      return ApiResponse.timeoutError();
-    } catch (e) {
-      debugLog('API Error (post): ${e.runtimeType}');
-      _crumb('POST', path, 0);
-      return ApiResponse.networkError();
+    } catch (e, st) {
+      return ApiResponse.fromError(_errorFromException('POST', path, e, st));
+    }
+  }
+
+  static void _noteResult(String method, String path, int status, ApiError? error) {
+    if (error == null) {
+      _crumb(method, path, status);
+    } else {
+      _noteFailure(method, path, error);
     }
   }
 
@@ -195,44 +220,43 @@ class ApiService {
     });
   }
 
-  /// Authenticated multipart POST — for file uploads (e.g. profile photo)
+  /// Authenticated multipart POST — for file uploads (e.g. profile photo).
+  ///
+  /// [onProgress] gets 0.0 to 1.0 as the bytes are handed to the network (approximate: the OS
+  /// buffers a little). Completing [cancel] aborts the upload; the result then has
+  /// `error.kind == ApiErrorKind.cancelled`. Like every authenticated call it refreshes the token
+  /// and retries once after a 401.
   Future<ApiResponse> authMultipartPost(
     String path, {
     required String fieldName,
     required List<int> bytes,
     required String filename,
     required String mimeType,
+    void Function(double progress)? onProgress,
+    Future<void>? cancel,
   }) async {
-    try {
+    final parts = mimeType.split('/');
+    final contentType = parts.length == 2
+        ? MediaType(parts[0], parts[1])
+        : MediaType('image', 'jpeg');
+
+    return _authenticatedRequest('POST', path, () async {
+      // A multipart request can only be sent once, so each attempt builds its own.
       final token = await getAccessToken();
-      final uri = Uri.parse('$baseUrl$path');
-      final parts = mimeType.split('/');
-      final contentType = parts.length == 2
-          ? MediaType(parts[0], parts[1])
-          : MediaType('image', 'jpeg');
-      final request = http.MultipartRequest('POST', uri)
-        ..headers['Authorization'] = 'Bearer $token'
-        ..files.add(
-          http.MultipartFile.fromBytes(
-            fieldName,
-            bytes,
-            filename: filename,
-            contentType: contentType,
-          ),
-        );
-      final streamed = await request.send().timeout(_timeout);
-      final response = await http.Response.fromStream(streamed);
-      final result = ApiResponse.fromResponse(response);
-      _crumb('POST', path, result.statusCode);
-      return result;
-    } on TimeoutException {
-      _crumb('POST', path, 0);
-      return ApiResponse.timeoutError();
-    } catch (e) {
-      debugLog('Multipart upload error: ${e.runtimeType}');
-      _crumb('POST', path, 0);
-      return ApiResponse.networkError();
-    }
+      final request = _UploadRequest('POST', Uri.parse('$baseUrl$path'), onProgress: onProgress, abortTrigger: cancel);
+      if (token != null) request.headers['Authorization'] = 'Bearer $token';
+      request.files.add(
+        http.MultipartFile.fromBytes(fieldName, bytes, filename: filename, contentType: contentType),
+      );
+      final sent = request.send();
+      final streamed = cancel == null
+          ? await sent
+          : await Future.any<http.StreamedResponse>([
+              sent,
+              cancel.then<http.StreamedResponse>((_) => throw http.RequestAbortedException()),
+            ]);
+      return http.Response.fromStream(streamed);
+    });
   }
 
   /// Public GET — no auth header. Returns raw decoded JSON body.
@@ -250,15 +274,10 @@ class ApiService {
           .get(uri, headers: _headers())
           .timeout(_timeout);
       final result = RawApiResponse.fromResponse(response);
-      _crumb('GET', path, result.statusCode);
+      _noteResult('GET', path, result.statusCode, result.error);
       return result;
-    } on TimeoutException {
-      _crumb('GET', path, 0);
-      return RawApiResponse.timeoutError();
-    } catch (e) {
-      debugLog('API Error (getRaw): ${e.runtimeType}');
-      _crumb('GET', path, 0);
-      return RawApiResponse.networkError();
+    } catch (e, st) {
+      return RawApiResponse.fromError(_errorFromException('GET', path, e, st));
     }
   }
 
@@ -293,6 +312,26 @@ class ApiService {
     });
   }
 
+  /// Sends an authenticated request. A 401 triggers one token refresh and one retry.
+  ///
+  /// Only a refresh the server REJECTS ends the session. If the refresh could not be attempted
+  /// (timeout, no connection, a 5xx while the server wakes up) the tokens are kept and the caller
+  /// gets that error instead, so a bad moment on the network never logs anyone out.
+  Future<http.Response> _sendAuthenticated(
+    Future<http.Response> Function() request,
+  ) async {
+    final response = await request().timeout(_timeout);
+    if (response.statusCode != 401) return response;
+
+    final refresh = await _refreshToken();
+    if (refresh.ok) return request().timeout(_timeout);
+    if (refresh.rejected) {
+      await _handleUnauthorized();
+      throw const ApiException(ApiError.sessionExpired);
+    }
+    throw ApiException(refresh.error!);
+  }
+
   /// Wraps an authenticated request with automatic token refresh on 401
   Future<ApiResponse> _authenticatedRequest(
     String method,
@@ -300,34 +339,15 @@ class ApiService {
     Future<http.Response> Function() request,
   ) async {
     try {
-      var response = await request().timeout(_timeout);
-
-      if (response.statusCode == 401) {
-        // Try to refresh the access token
-        final refreshed = await _refreshToken();
-        if (refreshed) {
-          response = await request().timeout(_timeout);
-        } else {
-          await _handleUnauthorized();
-          _crumb(method, path, 401);
-          return ApiResponse(
-            success: false,
-            message: 'Session expired. Please login again.',
-            statusCode: 401,
-          );
-        }
-      }
-
+      final response = await _sendAuthenticated(request);
       final result = ApiResponse.fromResponse(response);
-      _crumb(method, path, result.statusCode);
+      _noteResult(method, path, result.statusCode, result.error);
       return result;
-    } on TimeoutException {
-      _crumb(method, path, 0);
-      return ApiResponse.timeoutError();
-    } catch (e) {
-      debugLog('API Error ($method): ${e.runtimeType}');
-      _crumb(method, path, 0);
-      return ApiResponse.networkError();
+    } on ApiException catch (e) {
+      _noteFailure(method, path, e.error);
+      return ApiResponse.fromError(e.error);
+    } catch (e, st) {
+      return ApiResponse.fromError(_errorFromException(method, path, e, st));
     }
   }
 
@@ -339,41 +359,23 @@ class ApiService {
     Future<http.Response> Function() request,
   ) async {
     try {
-      var response = await request().timeout(_timeout);
-
-      if (response.statusCode == 401) {
-        final refreshed = await _refreshToken();
-        if (refreshed) {
-          response = await request().timeout(_timeout);
-        } else {
-          await _handleUnauthorized();
-          _crumb(method, path, 401);
-          return const RawApiResponse(
-            success: false,
-            message: 'Session expired. Please login again.',
-            statusCode: 401,
-          );
-        }
-      }
-
+      final response = await _sendAuthenticated(request);
       final result = RawApiResponse.fromResponse(response);
-      _crumb(method, path, result.statusCode);
+      _noteResult(method, path, result.statusCode, result.error);
       return result;
-    } on TimeoutException {
-      _crumb(method, path, 0);
-      return RawApiResponse.timeoutError();
-    } catch (e) {
-      debugLog('API Error ($method): ${e.runtimeType}');
-      _crumb(method, path, 0);
-      return RawApiResponse.networkError();
+    } on ApiException catch (e) {
+      _noteFailure(method, path, e.error);
+      return RawApiResponse.fromError(e.error);
+    } catch (e, st) {
+      return RawApiResponse.fromError(_errorFromException(method, path, e, st));
     }
   }
 
-  /// Calls /auth/token/refresh/ to get a new access token
-  Future<bool> _refreshToken() async {
+  /// Calls /auth/token/refresh/ to get a new access token.
+  Future<_Refresh> _refreshToken() async {
     try {
       final refreshToken = await getRefreshToken();
-      if (refreshToken == null) return false;
+      if (refreshToken == null || refreshToken.isEmpty) return const _Refresh.rejected();
 
       final response = await http
           .post(
@@ -385,24 +387,70 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final newAccess = data['access'] as String?;
-        final newRefresh = data['refresh'] as String?;
+        final newAccess = data is Map ? data['access'] as String? : null;
+        final newRefresh = data is Map ? data['refresh'] as String? : null;
         if (newAccess != null) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('jwt_access', newAccess);
           if (newRefresh != null) {
             await prefs.setString('jwt_refresh', newRefresh);
           }
-          return true;
+          return const _Refresh.ok();
         }
+        return const _Refresh.rejected();
       }
       _crumb('POST', '/auth/token/refresh/', response.statusCode);
-      return false;
+      // 400, 401 and 403: the server looked at the refresh token and refused it.
+      if (const {400, 401, 403}.contains(response.statusCode)) return const _Refresh.rejected();
+      // Anything else (5xx, 429...) says nothing about the token: keep it.
+      return _Refresh.unreachable(ApiErrorReader.fromResponse(response));
     } catch (e) {
       debugLog('API Error (_refreshToken): ${e.runtimeType}');
       _crumb('POST', '/auth/token/refresh/', 0);
-      return false;
+      return _Refresh.unreachable(ApiErrorReader.fromException(e));
     }
+  }
+}
+
+/// How a token refresh ended.
+class _Refresh {
+  const _Refresh.ok() : ok = true, rejected = false, error = null;
+  const _Refresh.rejected() : ok = false, rejected = true, error = null;
+  const _Refresh.unreachable(ApiError this.error) : ok = false, rejected = false;
+
+  final bool ok;
+  final bool rejected;
+  final ApiError? error;
+}
+
+/// A multipart request that can report progress and be aborted. (http's own
+/// AbortableMultipartRequest is final, so it cannot be extended to count bytes.)
+class _UploadRequest extends http.MultipartRequest with http.Abortable {
+  _UploadRequest(super.method, super.url, {this.onProgress, this.abortTrigger});
+
+  final void Function(double progress)? onProgress;
+
+  @override
+  final Future<void>? abortTrigger;
+
+  @override
+  http.ByteStream finalize() {
+    final stream = super.finalize();
+    final report = onProgress;
+    if (report == null) return stream;
+    final total = contentLength;
+    var sent = 0;
+    return http.ByteStream(
+      stream.transform(
+        StreamTransformer<List<int>, List<int>>.fromHandlers(
+          handleData: (chunk, sink) {
+            sent += chunk.length;
+            if (total > 0) report((sent / total).clamp(0.0, 1.0));
+            sink.add(chunk);
+          },
+        ),
+      ),
+    );
   }
 }
 
@@ -416,60 +464,54 @@ class ApiResponse {
   final Map<String, dynamic>? data;
   final int statusCode;
 
+  /// Set when the call failed: what kind of failure, in words for the user.
+  final ApiError? error;
+
   const ApiResponse({
     required this.success,
     required this.message,
     this.data,
     required this.statusCode,
+    this.error,
   });
 
   factory ApiResponse.fromResponse(http.Response response) {
-    try {
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = _tryDecode(response);
+    final body = decoded is Map<String, dynamic> ? decoded : null;
+    final dataField = body?['data'];
+    final data = dataField is Map<String, dynamic> ? dataField : null;
 
-      bool isSuccess = body['success'] as bool? ?? (response.statusCode < 400);
-      String msg = body['message'] as String? ?? '';
-
-      if (!isSuccess && body.containsKey('errors') && body['errors'] is Map) {
-        final errors = body['errors'] as Map;
-        if (errors.isNotEmpty) {
-          final firstKey = errors.keys.first;
-          final firstError = errors[firstKey];
-          if (firstError is List && firstError.isNotEmpty) {
-            msg = firstError.first.toString();
-          } else if (firstError is String) {
-            msg = firstError;
-          }
-        }
-      }
-
-      return ApiResponse(
-        success: isSuccess,
-        message: msg,
-        data: body['data'] as Map<String, dynamic>?,
-        statusCode: response.statusCode,
-      );
-    } catch (e) {
-      debugLog('API Error (ApiResponse.fromResponse): ${e.runtimeType}');
-      return ApiResponse(
-        success: false,
-        message: 'Unexpected server response.',
-        statusCode: response.statusCode,
-      );
+    final isFailure = response.statusCode >= 400 || (body != null && body['success'] == false);
+    if (isFailure) {
+      return ApiResponse.fromError(ApiErrorReader.fromResponse(response), data: data);
     }
+    if (body == null) {
+      // A 2xx that is not an object: not something the app can use.
+      return ApiResponse.fromError(ApiError.unreadable(response.statusCode));
+    }
+    return ApiResponse(
+      success: true,
+      message: body['message'] as String? ?? '',
+      data: data,
+      statusCode: response.statusCode,
+    );
   }
 
-  factory ApiResponse.networkError() => const ApiResponse(
-    success: false,
-    message: 'No internet connection. Please check your network.',
-    statusCode: 0,
-  );
+  factory ApiResponse.fromError(ApiError error, {Map<String, dynamic>? data}) => ApiResponse(
+        success: false,
+        message: error.message,
+        data: data,
+        statusCode: error.statusCode,
+        error: error,
+      );
 
-  factory ApiResponse.timeoutError() => const ApiResponse(
-    success: false,
-    message: 'Request timed out. Please try again.',
-    statusCode: 0,
-  );
+  static dynamic _tryDecode(http.Response response) {
+    try {
+      return jsonDecode(utf8.decode(response.bodyBytes, allowMalformed: true));
+    } on FormatException {
+      return null;
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -482,48 +524,55 @@ class RawApiResponse {
   final dynamic body; // raw decoded JSON (Map or List)
   final int statusCode;
 
+  /// Set when the call failed: what kind of failure, in words for the user.
+  final ApiError? error;
+
   const RawApiResponse({
     required this.success,
     required this.message,
     this.body,
     required this.statusCode,
+    this.error,
   });
 
   factory RawApiResponse.fromResponse(http.Response response) {
-    try {
-      final decoded = jsonDecode(response.body);
-      return RawApiResponse(
-        success: response.statusCode < 400,
-        message: response.statusCode < 400
-            ? ''
-            : (decoded is Map
-                  ? decoded['detail'] as String? ?? 'Request failed.'
-                  : 'Request failed.'),
-        body: decoded,
-        statusCode: response.statusCode,
-      );
-    } catch (e) {
-      // Status only: the URL carries query strings and the body can hold personal data.
-      debugLog(
-        'API Error (RawApiResponse.fromResponse): ${e.runtimeType}, status ${response.statusCode}',
-      );
-      return RawApiResponse(
-        success: false,
-        message: 'Unexpected server response.',
-        statusCode: response.statusCode,
-      );
+    final text = utf8.decode(response.bodyBytes, allowMalformed: true).trim();
+    dynamic decoded;
+    var readable = true;
+    if (text.isNotEmpty) {
+      try {
+        decoded = jsonDecode(text);
+      } on FormatException {
+        readable = false;
+      }
     }
+
+    if (response.statusCode >= 400) {
+      return RawApiResponse.fromError(ApiErrorReader.fromResponse(response), body: decoded);
+    }
+    if (!readable) {
+      // Status only: the URL carries query strings and the body can hold personal data.
+      debugLog('API Error (RawApiResponse.fromResponse): not JSON, status ${response.statusCode}');
+      return RawApiResponse.fromError(ApiError.unreadable(response.statusCode));
+    }
+    return RawApiResponse(success: true, message: '', body: decoded, statusCode: response.statusCode);
   }
 
-  factory RawApiResponse.networkError() => const RawApiResponse(
-    success: false,
-    message: 'No internet connection. Please check your network.',
-    statusCode: 0,
-  );
+  /// The failure as an exception to throw from a provider (its message is already in words).
+  ApiException toException() => ApiException(
+        error ??
+            ApiError(
+              kind: ApiErrorKind.unexpected,
+              statusCode: statusCode,
+              message: message.isEmpty ? ApiError.unexpected.message : message,
+            ),
+      );
 
-  factory RawApiResponse.timeoutError() => const RawApiResponse(
-    success: false,
-    message: 'Request timed out. Please try again.',
-    statusCode: 0,
-  );
+  factory RawApiResponse.fromError(ApiError error, {dynamic body}) => RawApiResponse(
+        success: false,
+        message: error.message,
+        body: body,
+        statusCode: error.statusCode,
+        error: error,
+      );
 }
