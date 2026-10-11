@@ -1,0 +1,56 @@
+name: app
+
+# Every push and every pull request: dependencies, analyzer and tests. No secrets needed.
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: app-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    defaults:
+      run:
+        working-directory: rohii_hostel_hunt
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.4
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Errors fail the build. Warnings and infos are a ratchet: the total may not grow past the
+      # count at the time this was added (64). Lower the limit whenever warnings are fixed.
+      - name: Analyze
+        run: |
+          flutter analyze --no-fatal-infos --no-fatal-warnings | tee analyze.txt
+          total=$(grep -oE '^[0-9]+ issues? found' analyze.txt | grep -oE '^[0-9]+' || echo 0)
+          echo "analyzer issues: $total (limit 64)"
+          test "$total" -le 64
+
+      - name: Tests
+        run: flutter test
+
+      # Warning only: the app keeps copies of the backend's contract files. A difference means one
+      # side changed without the other (or the backend change is not on main yet).
+      - name: Contract copies match the backend
+        continue-on-error: true
+        run: |
+          base=https://raw.githubusercontent.com/rohanaarup/hostel-hunt-admin-pannel/main/backend/contract
+          curl -fsSL "$base/fixtures/hostels_list.json" | diff -u - test/fixtures/hostels_list.json
+          curl -fsSL "$base/endpoints.txt" | grep -E '^app ' | diff -u - <(grep -E '^app ' test/contract/app_endpoints.txt)

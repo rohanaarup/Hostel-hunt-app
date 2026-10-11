@@ -19,9 +19,15 @@ Everything below was checked against the code or run on 2026-10-10; things not r
 ```
 flutter pub get
 flutter analyze      # 0 errors, 11 warnings, 53 infos at this commit
-flutter test         # 19 tests, all pass (observability, privacy, logging hygiene)
+flutter test         # all pass: observability, privacy, logging hygiene, API contract, hostel list fixture, app smoke test
 ```
 Run on a device or emulator: `flutter run` (add `--dart-define=USE_LOCAL_BACKEND=true` for a local backend).
+
+## Change pipeline
+- CI (`.github/workflows/app.yml`, check name `app / test`) runs on every push and PR: `flutter pub get`, `flutter analyze` (errors fail; the total of warnings and infos may not exceed 64), `flutter test`.
+- `test/fixtures/hostels_list.json` is a recorded sample of the real `GET /hostels/` response (copied from the backend repo's `backend/contract/fixtures/`); `test/features/hostel_list_fixture_test.dart` parses it into `Hostel` and checks id, cover image and price.
+- `test/contract/app_endpoints.txt` is a copy of the `app` lines of the backend's `contract/endpoints.txt`; `test/contract/api_paths_test.dart` fails if the Dart code calls a path that is not listed, or a listed path is no longer called. Change both lists together.
+- `test/app_smoke_test.dart` starts the real app inside a `ProviderScope` with `FakeApiService` (`test/helpers/`).
 
 ## Rules for changes
 - Measure first. Keep changes small and in the existing style.
@@ -30,7 +36,8 @@ Run on a device or emulator: `flutter run` (add `--dart-define=USE_LOCAL_BACKEND
 - Never print, log or commit secrets. No keys belong in this repo.
 
 ## Known gaps
-- Test coverage is limited to the observability layer (`test/core/observability/`). There are no screen or API-contract tests yet; the old default counter test was removed because it could never pass.
+- Test coverage is still thin: observability, the hostel list model, the API path list and one smoke test. No per-screen tests.
+- Several calls the app makes fail against the backend today (profile PATCH and photo upload, my bookings, wishlist count); they are marked `expected-fail` in the contract lists with the reason.
 - Android `applicationId` is `com.example.rohii_hostel_hunt` (`android/app/build.gradle*`). Play Console is expected to reject `com.example.*` IDs, so choose a real ID before the first Play Store upload (an ID cannot be changed after publishing).
 - `flutter analyze` reports 11 warnings (unused fields, variables and one import) and many deprecation infos such as `withOpacity`.
 
