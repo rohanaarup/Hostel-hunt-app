@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/features/location/presentation/providers/location_riverpod_provider.dart';
 import 'package:rohii_hostel_hunt/features/hostel/presentation/providers/hostel_provider.dart';
+import 'package:rohii_hostel_hunt/features/location/presentation/providers/cities_provider.dart';
+import 'package:rohii_hostel_hunt/core/config/feature_flags.dart';
 import 'package:rohii_hostel_hunt/core/theme/theme_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════
@@ -13,28 +15,26 @@ import 'package:rohii_hostel_hunt/core/theme/theme_provider.dart';
 // Layout:
 //  1. AppBar — back arrow + "Select Location"
 //  2. Search bar — filters cities & localities in real-time
-//  3. Auto Detect row
-//  4. Popular Cities grid (4-column)
+//  3. Auto Detect row (only when kEnableAutoDetect is on)
+//  4. Cities grid (4-column), from the server's /cities/
 //  5. Areas section — shows after city tap, fetches from API
 
-const List<_CityMeta> _popularCities = [
-  _CityMeta('Mumbai', Icons.location_city_rounded),
-  _CityMeta('Delhi-NCR', Icons.account_balance_rounded),
-  _CityMeta('Bengaluru', Icons.corporate_fare_rounded),
-  _CityMeta('Hyderabad', Icons.domain_rounded),
-  _CityMeta('Chandigarh', Icons.holiday_village_rounded),
-  _CityMeta('Ahmedabad', Icons.museum_rounded),
-  _CityMeta('Pune', Icons.apartment_rounded),
-  _CityMeta('Chennai', Icons.temple_hindu_rounded),
-  _CityMeta('Kolkata', Icons.fort_rounded),
-  _CityMeta('Kochi', Icons.sailing_rounded),
-];
+// Only the picture on a city tile; which cities exist comes from the server.
+const Map<String, IconData> _cityIcons = {
+  'mumbai': Icons.location_city_rounded,
+  'delhi': Icons.account_balance_rounded,
+  'bengaluru': Icons.corporate_fare_rounded,
+  'hyderabad': Icons.domain_rounded,
+  'chandigarh': Icons.holiday_village_rounded,
+  'ahmedabad': Icons.museum_rounded,
+  'pune': Icons.apartment_rounded,
+  'chennai': Icons.temple_hindu_rounded,
+  'kolkata': Icons.fort_rounded,
+  'kochi': Icons.sailing_rounded,
+};
 
-class _CityMeta {
-  final String name;
-  final IconData icon;
-  const _CityMeta(this.name, this.icon);
-}
+IconData _iconForCity(CityOption city) =>
+    _cityIcons[city.slug.split('-').first] ?? Icons.location_city_rounded;
 
 class LocationScreen extends ConsumerStatefulWidget {
   const LocationScreen({super.key});
@@ -65,12 +65,10 @@ class _LocationScreenState extends ConsumerState<LocationScreen>
     super.dispose();
   }
 
-  // ── Filter popular cities by search query ──
-  List<_CityMeta> get _filteredCities {
-    if (_query.isEmpty) return _popularCities;
-    return _popularCities
-        .where((c) => c.name.toLowerCase().contains(_query))
-        .toList();
+  // ── Filter cities by search query ──
+  List<CityOption> _filterCities(List<CityOption> cities) {
+    if (_query.isEmpty) return cities;
+    return cities.where((c) => c.name.toLowerCase().contains(_query)).toList();
   }
 
   void _onCityTap(String city) {
@@ -100,6 +98,7 @@ class _LocationScreenState extends ConsumerState<LocationScreen>
     final isDark = ref.watch(themeProvider);
     final locState = ref.watch(locationProvider);
     final currentSelected = locState.selectedCity;
+    final citiesAsync = ref.watch(citiesProvider);
 
     return Scaffold(
       backgroundColor: AppColors.appBackground(isDark),
@@ -136,41 +135,60 @@ class _LocationScreenState extends ConsumerState<LocationScreen>
             ),
             const SizedBox(height: 16),
 
-            // ── 2. Auto Detect ──
-            _AutoDetectRow(
-              isDark: isDark,
-              locState: locState,
-              onTap: () async {
-                HapticFeedback.lightImpact();
-                await ref
-                    .read(locationProvider.notifier)
-                    .detectCurrentLocation();
-                if (!mounted) return;
-                final updated = ref.read(locationProvider);
-                if (updated.selectedCity.isNotEmpty && updated.locationError == null) {
-                  // ignore: use_build_context_synchronously
-                  Navigator.pop(context);
-                }
-              },
-            ),
-            const SizedBox(height: 24),
+            // ── 2. Auto Detect (hidden until it works end to end) ──
+            if (kEnableAutoDetect) ...[
+              _AutoDetectRow(
+                isDark: isDark,
+                locState: locState,
+                onTap: () async {
+                  HapticFeedback.lightImpact();
+                  await ref
+                      .read(locationProvider.notifier)
+                      .detectCurrentLocation();
+                  if (!mounted) return;
+                  final updated = ref.read(locationProvider);
+                  if (updated.selectedCity.isNotEmpty && updated.locationError == null) {
+                    // ignore: use_build_context_synchronously
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              const SizedBox(height: 24),
+            ],
 
-            // ── 3. Popular Cities ──
+            // ── 3. Cities ──
             _SectionHeader(
               isDark: isDark,
-              label: 'POPULAR CITIES',
+              label: 'CITIES',
             ),
             const SizedBox(height: 12),
 
-            if (_filteredCities.isEmpty)
-              _EmptySearch(isDark: isDark, query: _query)
-            else
-              _CitiesGrid(
-                cities: _filteredCities,
-                isDark: isDark,
-                selectedCity: currentSelected,
-                onTap: _onCityTap,
+            citiesAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 32),
+                child: Center(child: CircularProgressIndicator()),
               ),
+              error: (e, _) => _CitiesError(
+                isDark: isDark,
+                message: e.toString().replaceFirst('Exception: ', ''),
+                onRetry: () => ref.invalidate(citiesProvider),
+              ),
+              data: (cities) {
+                final shown = _filterCities(cities);
+                if (cities.isEmpty) {
+                  return _EmptySearch(isDark: isDark, message: 'No cities have hostels yet');
+                }
+                if (shown.isEmpty) {
+                  return _EmptySearch(isDark: isDark, message: 'No cities found for "$_query"');
+                }
+                return _CitiesGrid(
+                  cities: shown,
+                  isDark: isDark,
+                  selectedCity: currentSelected,
+                  onTap: _onCityTap,
+                );
+              },
+            ),
 
             const SizedBox(height: 24),
 
@@ -422,7 +440,7 @@ class _SectionHeader extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────
 
 class _CitiesGrid extends StatelessWidget {
-  final List<_CityMeta> cities;
+  final List<CityOption> cities;
   final bool isDark;
   final String selectedCity;
   final void Function(String) onTap;
@@ -462,7 +480,7 @@ class _CitiesGrid extends StatelessWidget {
 }
 
 class _CityTile extends StatelessWidget {
-  final _CityMeta city;
+  final CityOption city;
   final bool isDark;
   final bool isSelected;
   final VoidCallback onTap;
@@ -502,7 +520,7 @@ class _CityTile extends StatelessWidget {
               clipBehavior: Clip.none,
               children: [
                 Icon(
-                  city.icon,
+                  _iconForCity(city),
                   size: 28,
                   color: isSelected
                       ? primaryColor
@@ -552,9 +570,9 @@ class _CityTile extends StatelessWidget {
 
 class _EmptySearch extends StatelessWidget {
   final bool isDark;
-  final String query;
+  final String message;
 
-  const _EmptySearch({required this.isDark, required this.query});
+  const _EmptySearch({required this.isDark, required this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -567,11 +585,62 @@ class _EmptySearch extends StatelessWidget {
                 size: 48, color: AppColors.textSecondary(isDark)),
             const SizedBox(height: 12),
             Text(
-              'No cities found for "$query"',
+              message,
               style: TextStyle(
                 color: AppColors.textSecondary(isDark),
                 fontSize: 14,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CitiesError extends StatelessWidget {
+  final bool isDark;
+  final String message;
+  final VoidCallback onRetry;
+
+  const _CitiesError({
+    required this.isDark,
+    required this.message,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(Icons.cloud_off_rounded,
+                size: 40, color: AppColors.textSecondary(isDark)),
+            const SizedBox(height: 10),
+            Text(
+              'Could not load cities',
+              style: TextStyle(
+                color: AppColors.textHeading(isDark),
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textSecondary(isDark),
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Retry'),
             ),
           ],
         ),
@@ -723,6 +792,15 @@ class _AreasSection extends ConsumerWidget {
               style: TextStyle(
                 color: AppColors.textSecondary(isDark),
                 fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              error.replaceFirst('Exception: ', ''),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textSecondary(isDark),
+                fontSize: 12,
               ),
             ),
           ],
