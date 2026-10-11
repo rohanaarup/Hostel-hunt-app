@@ -38,8 +38,20 @@ jobs:
       # count at the time this was added (64). Lower the limit whenever warnings are fixed.
       - name: Analyze
         run: |
-          flutter analyze --no-fatal-infos --no-fatal-warnings | tee analyze.txt
-          total=$(grep -oE '^[0-9]+ issues? found' analyze.txt | grep -oE '^[0-9]+' || echo 0)
+          # 2>&1: the summary line is written to stderr.
+          flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee analyze.txt
+          # The summary line can follow a carriage-return progress line, so it is not anchored
+          # to the start of a line, and a missing summary fails the step.
+          tr '\r' '\n' < analyze.txt > analyze.clean.txt
+          total=$(grep -oE '[0-9]+ issues? found' analyze.clean.txt | grep -oE '[0-9]+' | tail -1)
+          if [ -z "$total" ]; then
+            if grep -q 'No issues found' analyze.clean.txt; then
+              total=0
+            else
+              echo "could not read the analyzer summary"
+              exit 1
+            fi
+          fi
           echo "analyzer issues: $total (limit 64)"
           test "$total" -le 64
 
