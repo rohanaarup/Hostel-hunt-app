@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/core/network/api_provider.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
+import 'package:rohii_hostel_hunt/core/network/list_body.dart';
 import 'package:rohii_hostel_hunt/core/observability/error_reporter.dart';
 
 class UserProfile {
@@ -153,20 +154,20 @@ class UserProfileNotifier extends AsyncNotifier<UserProfile?> {
         List<dynamic> recentBookings = [];
 
         try {
-          final bookingsRes = await _api.authGetRaw('/bookings/my-bookings/');
-          if (bookingsRes.success && bookingsRes.body is List) {
-            final list = bookingsRes.body as List;
-            bookingsCount = list.length;
-            recentBookings = list.take(5).toList();
+          // Paginated: only the first page of items arrives, but `count` is the real total.
+          final bookingsRes = await _api.authGetRaw('/bookings/my/');
+          if (bookingsRes.success) {
+            bookingsCount = countFromBody(bookingsRes.body);
+            recentBookings = itemsFromBody(bookingsRes.body).take(5).toList();
           }
         } catch (e, st) {
           errorReporter.report(e, st, hint: 'profile: my-bookings stats');
         }
 
         try {
-          final savedRes = await _api.authGetRaw('/favorites/hostels/');
-          if (savedRes.success && savedRes.body is List) {
-            savedCount = (savedRes.body as List).length;
+          final savedRes = await _api.authGetRaw('/wishlist/');
+          if (savedRes.success) {
+            savedCount = countFromBody(savedRes.body, keys: ['wishlist']);
           }
         } catch (e, st) {
           errorReporter.report(e, st, hint: 'profile: saved hostels stats');
