@@ -39,7 +39,13 @@ jobs:
       - name: Analyze
         run: |
           flutter analyze --no-fatal-infos --no-fatal-warnings | tee analyze.txt
-          total=$(grep -oE '^[0-9]+ issues? found' analyze.txt | grep -oE '^[0-9]+' || echo 0)
+          # The summary line can follow a carriage-return progress line, so do not anchor it.
+          total=$(tr '' '
+' < analyze.txt | grep -oE '[0-9]+ issues? found' | grep -oE '[0-9]+' | tail -1)
+          if [ -z "$total" ]; then
+            if tr '' '
+' < analyze.txt | grep -q 'No issues found'; then total=0; else echo "could not read the analyzer summary"; exit 1; fi
+          fi
           echo "analyzer issues: $total (limit 64)"
           test "$total" -le 64
 
