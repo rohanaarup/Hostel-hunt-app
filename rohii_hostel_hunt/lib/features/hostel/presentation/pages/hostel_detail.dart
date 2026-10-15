@@ -2,7 +2,7 @@
 // Hostel Hunt — Premium Hostel Detail Page (FIXED)
 // ─────────────────────────────────────────────────────────
 
-import 'package:rohii_hostel_hunt/core/observability/error_reporter.dart';
+import 'package:rohii_hostel_hunt/features/hostel/presentation/providers/hostel_provider.dart';
 import 'package:rohii_hostel_hunt/core/network/api_error.dart';
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
@@ -16,6 +16,8 @@ import 'package:rohii_hostel_hunt/features/hostel/presentation/pages/bed_selecti
 import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/theme/theme_provider.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
+import 'package:rohii_hostel_hunt/features/wishlist/presentation/providers/saved_provider.dart';
+import 'package:rohii_hostel_hunt/features/wishlist/presentation/save_heart_actions.dart';
 
 class HostelDetailPage extends ConsumerStatefulWidget {
   final Hostel hostel;
@@ -38,17 +40,17 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
   late final Animation<Offset> _slideUp;
 
   // ── State ──
-  bool _isSaved = false;
   bool _bookBounce = false;
 
-  // ── Detail API state ──
+  // ── Detail ──
+  // The hostel as the list gave it, merged with the full detail when that arrives.
   late Hostel _hostel;
-  // ignore: unused_field
-  bool _isDetailLoading = false;
-  // ignore: unused_field
-  bool _hasDetailError = false;
-  // ignore: unused_field
-  String _detailErrorMessage = '';
+
+  // The "could not load" banner, and the messenger that shows it (kept so dispose can remove it).
+  bool _bannerShown = false;
+  ScaffoldMessengerState? _messenger;
+
+  bool get _loadsDetail => !widget.hostel.isLocal && widget.hostel.id.isNotEmpty;
 
   @override
   void initState() {
@@ -74,59 +76,42 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
 
     _entryController.forward();
 
-    // Fetch full detail from API if this is an API-sourced hostel
-    if (!_hostel.isLocal && _hostel.id.isNotEmpty) {
-      _fetchDetail();
-    }
   }
 
-  /// Fetch full hostel detail from GET /api/hostels/{id}/
-  Future<void> _fetchDetail() async {
-    setState(() {
-      _isDetailLoading = true;
-      _hasDetailError = false;
-    });
-
-    try {
-      final response = await ApiService().getRaw('/hostels/${_hostel.id}/');
-
-      if (!mounted) return;
-
-      if (!response.success) {
-        setState(() {
-          _hasDetailError = true;
-          _detailErrorMessage = response.message;
-          _isDetailLoading = false;
-        });
-        return;
-      }
-
-      final body = response.body;
-      if (body is Map<String, dynamic>) {
-        setState(() {
-          _hostel = _hostel.mergeWithDetail(Hostel.fromJson(body));
-          _isDetailLoading = false;
-        });
-      } else {
-        setState(() {
-          _hasDetailError = true;
-          _detailErrorMessage = ApiError.unreadable(response.statusCode).message;
-          _isDetailLoading = false;
-        });
-      }
-    } catch (e, st) {
-      errorReporter.report(e, st, hint: 'hostel detail: load');
-      if (!mounted) return;
-      setState(() {
-        _hasDetailError = true;
-        _detailErrorMessage = userMessageOf(e);
-        _isDetailLoading = false;
-      });
-    }
+  /// The detail arrived or failed: merge it in, or show why not with a Retry. The hostel from the
+  /// list stays on screen either way.
+  void _onDetail(AsyncValue<Hostel>? previous, AsyncValue<Hostel> next) {
+    final messenger = _messenger ??= ScaffoldMessenger.maybeOf(context);
+    next.when(
+      data: (detail) {
+        if (_bannerShown) {
+          messenger?.hideCurrentMaterialBanner();
+          _bannerShown = false;
+        }
+        setState(() => _hostel = widget.hostel.mergeWithDetail(detail));
+      },
+      error: (error, _) {
+        _bannerShown = true;
+        messenger
+          ?..hideCurrentMaterialBanner()
+          ..showMaterialBanner(MaterialBanner(
+            content: Text("Couldn't load the latest details. ${userMessageOf(error)}"),
+            leading: const Icon(Icons.cloud_off_rounded),
+            actions: [
+              TextButton(
+                onPressed: () => ref.invalidate(hostelDetailProvider(widget.hostel.id)),
+                child: const Text('Retry'),
+              ),
+            ],
+          ));
+      },
+      loading: () {},
+    );
   }
 
   @override
   void dispose() {
+    if (_bannerShown) _messenger?.hideCurrentMaterialBanner();
     _pageController.dispose();
     _entryController.dispose();
     super.dispose();
@@ -405,6 +390,10 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
   @override
   Widget build(BuildContext context) {
     final isDark = ref.watch(themeProvider);
+    _messenger ??= ScaffoldMessenger.maybeOf(context);
+    if (_loadsDetail) {
+      ref.listen<AsyncValue<Hostel>>(hostelDetailProvider(widget.hostel.id), _onDetail);
+    }
 
     return Scaffold(
       backgroundColor: AppColors.appBackground(isDark),
@@ -843,6 +832,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
   // ══════════════════════════════════════════════════════════
 
   Widget _buildBottomBar(bool isDark) {
+    final isSaved = ref.watch(isSavedProvider(_hostel.id));
     return Positioned(
       bottom: 0,
       left: 0,
@@ -923,22 +913,19 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
 
                 // ── Save / Wishlist button ──
                 GestureDetector(
-                  onTap: () {
-                    HapticFeedback.mediumImpact();
-                    setState(() => _isSaved = !_isSaved);
-                  },
+                  onTap: () => onHeartTapped(context, ref, _hostel),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 250),
                     curve: Curves.easeOutCubic,
                     width: 54,
                     height: 54,
                     decoration: BoxDecoration(
-                      color: _isSaved
+                      color: isSaved
                           ? AppColors.auburn500.withValues(alpha: 0.12)
                           : (isDark ? AppColors.ivory900 : AppColors.ivory300),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: _isSaved
+                        color: isSaved
                             ? AppColors.auburn500.withValues(alpha: 0.4)
                             : (isDark
                                 ? AppColors.ivory50.withValues(alpha: 0.08)
@@ -951,11 +938,11 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                       transitionBuilder: (child, animation) =>
                           ScaleTransition(scale: animation, child: child),
                       child: Icon(
-                        _isSaved
+                        isSaved
                             ? Icons.favorite_rounded
                             : Icons.favorite_border_rounded,
-                        key: ValueKey(_isSaved),
-                        color: _isSaved
+                        key: ValueKey(isSaved),
+                        color: isSaved
                             ? AppColors.auburn500
                             : AppColors.textSecondary(isDark),
                         size: 22,

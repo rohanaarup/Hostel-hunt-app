@@ -1,0 +1,53 @@
+{
+  "count": 2,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "amount": "8000.00",
+      "bed_number": null,
+      "check_in_date": null,
+      "check_out_date": null,
+      "created_at": "2026-10-15T06:29:25.590457Z",
+      "floor_number": null,
+      "hostel": "da04d121-9fae-4ced-a2d3-ee00a4add8ba",
+      "hostel_name": "Lakeview Hostel",
+      "id": "0de4cc56-0b9b-4f2e-89af-302e0ead20eb",
+      "marked_paid_at": null,
+      "marked_paid_by": null,
+      "notes": null,
+      "payment_mode": "online",
+      "room": null,
+      "room_display": "Room 102",
+      "room_name": "Room 102",
+      "room_number": null,
+      "status": "confirmed",
+      "student_name": "Asha Example",
+      "student_phone": "",
+      "updated_at": "2026-10-15T06:29:25.590799Z"
+    },
+    {
+      "amount": "6500.00",
+      "bed_number": null,
+      "check_in_date": null,
+      "check_out_date": null,
+      "created_at": "2026-10-15T06:29:25.589281Z",
+      "floor_number": null,
+      "hostel": "7e5f898c-d770-4f73-bcff-92c5f03fc689",
+      "hostel_name": "Sunrise PG",
+      "id": "8e7b274d-720c-449c-8c03-e3203a1cdb0a",
+      "marked_paid_at": null,
+      "marked_paid_by": null,
+      "notes": null,
+      "payment_mode": "offline",
+      "room": null,
+      "room_display": "Room 101",
+      "room_name": "Room 101",
+      "room_number": null,
+      "status": "pending",
+      "student_name": "Asha Example",
+      "student_phone": "",
+      "updated_at": "2026-10-15T06:29:25.589729Z"
+    }
+  ]
+}

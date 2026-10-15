@@ -8,6 +8,8 @@ import 'package:rohii_hostel_hunt/core/network/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/features/profile/presentation/providers/user_provider.dart';
+import 'package:rohii_hostel_hunt/features/booking/presentation/providers/my_bookings_provider.dart';
+import 'package:rohii_hostel_hunt/features/wishlist/presentation/providers/saved_provider.dart';
 import 'package:rohii_hostel_hunt/shared/widgets/auth/auth_logo_lockup.dart';
 import 'package:rohii_hostel_hunt/shared/widgets/auth/auth_hero_row.dart';
 import 'package:rohii_hostel_hunt/shared/widgets/auth/auth_input_field.dart';
@@ -168,6 +170,10 @@ class _LoginPageState extends ConsumerState<LoginPage>
         await prefs.setString('user_email', user?['email'] as String? ?? '');
 
         ref.read(userProvider.notifier).refresh();
+        // The saved hostels and the bookings belong to whoever is signed in now.
+        ref.invalidate(savedIdsProvider);
+        ref.invalidate(savedListProvider);
+        ref.invalidate(myBookingsProvider);
       }
 
       setState(() => _isLoading = false);

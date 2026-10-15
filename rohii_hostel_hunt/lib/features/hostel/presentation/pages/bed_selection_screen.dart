@@ -26,7 +26,11 @@ class _BedSelectionScreenState extends ConsumerState<BedSelectionScreen> {
     final cs = Theme.of(context).colorScheme;
     final isDone = selectedFloor != null && selectedRoom != null && selectedBedId != null;
 
-    final roomsAsyncValue = ref.watch(roomsProvider(widget.hostel.id));
+    // The rooms came with the hostel's detail: use them. Only fetch when they did not (the person
+    // opened this before the detail finished loading, or arrived from somewhere that has no detail).
+    final AsyncValue<Map<int, List<Room>>> roomsAsyncValue = widget.hostel.roomsLoaded
+        ? AsyncData(groupRoomsByFloor(widget.hostel.rooms))
+        : ref.watch(roomsProvider(widget.hostel.id));
 
     return Scaffold(
       appBar: AppBar(

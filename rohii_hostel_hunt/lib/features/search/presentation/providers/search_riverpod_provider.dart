@@ -86,6 +86,7 @@ const List<String> popularSearches = [
 
 class SearchNotifier extends Notifier<SearchStateData> {
   Timer? _debounce;
+  int _searchSeq = 0; // each search takes a number; a reply for an older number is ignored
   static const _debounceDuration = Duration(milliseconds: 300);
 
   @override
@@ -130,6 +131,8 @@ class SearchNotifier extends Notifier<SearchStateData> {
 
   /// Apply a popular / recent search term directly (no debounce).
   void searchForTerm(String term) {
+    // A search still waiting on the debounce timer is older than this one: drop it.
+    _debounce?.cancel();
     state = state.copyWith(
       query: term,
       status: SearchStatus.searching,
@@ -157,6 +160,7 @@ class SearchNotifier extends Notifier<SearchStateData> {
 
   /// Core search logic — 1:1 translation of SearchProvider._performSearch()
   Future<void> _performSearch(String searchQuery) async {
+    final mine = ++_searchSeq;
     try {
       // Search stays inside the selected city (and locality, when one is chosen).
       final location = ref.read(locationProvider);
@@ -169,6 +173,7 @@ class SearchNotifier extends Notifier<SearchStateData> {
         '/hostels/',
         queryParams: params,
       );
+      if (mine != _searchSeq) return; // a newer search has started: this reply is out of date
 
       if (!response.success) {
         state = state.copyWith(

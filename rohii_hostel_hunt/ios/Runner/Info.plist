@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Hostel Hunt uses the microphone so you can search for hostels by voice.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Hostel Hunt turns what you say into a search for hostels.</string>
 </dict>
 </plist>

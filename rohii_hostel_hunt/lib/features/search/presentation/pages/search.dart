@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/theme/theme_provider.dart';
+import 'package:rohii_hostel_hunt/features/search/domain/speech_service.dart';
 import 'package:rohii_hostel_hunt/features/search/presentation/providers/search_riverpod_provider.dart';
+import 'package:rohii_hostel_hunt/features/search/presentation/providers/voice_search_provider.dart';
 import 'package:rohii_hostel_hunt/features/search/presentation/widgets/search_result_card.dart';
 
 /// ─────────────────────────────────────────────────────────
@@ -65,6 +67,16 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
     final isDark = ref.watch(themeProvider);
     final searchState = ref.watch(searchProvider);
 
+    // What voice search hears appears in the search box as it is spoken.
+    ref.listen<VoiceState>(voiceSearchProvider, (previous, next) {
+      if (next.transcript.isNotEmpty && next.transcript != previous?.transcript) {
+        _controller.value = TextEditingValue(
+          text: next.transcript,
+          selection: TextSelection.collapsed(offset: next.transcript.length),
+        );
+      }
+    });
+
     return Scaffold(
       backgroundColor: AppColors.appBackground(isDark),
       body: SafeArea(
@@ -74,6 +86,9 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
             children: [
               // ── Search header ──
               _buildSearchHeader(isDark),
+
+              // ── Voice search: listening, or why it did not work ──
+              _buildVoicePanel(isDark),
 
               // ── Content area ──
               Expanded(
@@ -172,7 +187,7 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
                     ),
                   ),
 
-                  // Clear / mic button
+                  // Clear button (when there is text) and the voice search button
                   if (_controller.text.isNotEmpty)
                     GestureDetector(
                       onTap: () {
@@ -189,20 +204,153 @@ class _SearchPageState extends ConsumerState<SearchPage> with TickerProviderStat
                           size: 18,
                         ),
                       ),
-                    )
-                  else
-                    Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Icon(
-                        Icons.mic_none_rounded,
-                        color: AppColors.auburn500.withValues(alpha: 0.7),
-                        size: 20,
-                      ),
                     ),
+                  _buildVoiceControls(isDark),
                 ],
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════ VOICE SEARCH ═══════════════════════
+
+  /// The language badge (EN / हि / తె) and the mic button.
+  Widget _buildVoiceControls(bool isDark) {
+    final voice = ref.watch(voiceSearchProvider);
+    final notifier = ref.read(voiceSearchProvider.notifier);
+    final listening = voice.phase == VoicePhase.listening;
+    final current = kVoiceLocales.firstWhere((l) => l.id == voice.localeId, orElse: () => kVoiceLocales.first);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PopupMenuButton<String>(
+          key: const Key('voice-language'),
+          tooltip: 'Voice search language',
+          padding: EdgeInsets.zero,
+          onSelected: notifier.chooseLanguage,
+          itemBuilder: (_) => [
+            for (final locale in voice.availableLocales)
+              CheckedPopupMenuItem<String>(
+                value: locale.id,
+                checked: locale.id == voice.localeId,
+                child: Text(locale.name),
+              ),
+          ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+            child: Text(
+              current.badge,
+              style: TextStyle(
+                color: AppColors.textSecondary(isDark),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+        Semantics(
+          button: true,
+          label: listening ? 'Stop voice search' : 'Search by voice',
+          child: GestureDetector(
+            key: const Key('voice-mic'),
+            onTap: () {
+              _focusNode.unfocus();
+              notifier.toggle();
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(right: 4),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: listening ? AppColors.auburn500 : Colors.transparent,
+              ),
+              child: Icon(
+                listening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                color: listening ? AppColors.ivory50 : AppColors.auburn500.withValues(alpha: 0.8),
+                size: 20,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Under the search box while listening, and when voice search could not work.
+  Widget _buildVoicePanel(bool isDark) {
+    final voice = ref.watch(voiceSearchProvider);
+    final notifier = ref.read(voiceSearchProvider.notifier);
+    if (voice.phase == VoicePhase.idle) return const SizedBox.shrink();
+
+    final listening = voice.phase == VoicePhase.listening;
+    final issue = voice.issue;
+
+    // The button that can fix the problem, if there is one.
+    Widget? action;
+    if (issue == SpeechIssue.permissionDenied) {
+      action = TextButton(onPressed: notifier.allowMicrophone, child: const Text('Allow'));
+    } else if (issue == SpeechIssue.permissionPermanentlyDenied) {
+      action = TextButton(onPressed: notifier.openSettings, child: const Text('Open settings'));
+    } else if (issue == SpeechIssue.noMatch ||
+        issue == SpeechIssue.offline ||
+        issue == SpeechIssue.busy ||
+        issue == SpeechIssue.other) {
+      action = TextButton(onPressed: notifier.toggle, child: const Text('Try again'));
+    }
+
+    return Container(
+      key: const Key('voice-panel'),
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+      decoration: BoxDecoration(
+        color: (listening ? AppColors.auburn500 : AppColors.error).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: (listening ? AppColors.auburn500 : AppColors.error).withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            listening ? Icons.mic_rounded : Icons.mic_off_rounded,
+            color: listening ? AppColors.auburn500 : AppColors.error,
+            size: 22,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  listening
+                      ? (voice.transcript.isEmpty ? 'Listening… speak now' : voice.transcript)
+                      : speechIssueMessage(issue ?? SpeechIssue.other),
+                  style: TextStyle(
+                    color: AppColors.textHeading(isDark),
+                    fontSize: 14,
+                    height: 1.35,
+                    fontWeight: listening ? FontWeight.w600 : FontWeight.w500,
+                  ),
+                ),
+                if (listening)
+                  Text(
+                    'Tap the mic to stop',
+                    style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 12),
+                  ),
+              ],
+            ),
+          ),
+          ?action,
+          if (!listening)
+            IconButton(
+              tooltip: 'Dismiss',
+              onPressed: notifier.dismiss,
+              icon: Icon(Icons.close_rounded, size: 18, color: AppColors.textSecondary(isDark)),
+            ),
         ],
       ),
     );

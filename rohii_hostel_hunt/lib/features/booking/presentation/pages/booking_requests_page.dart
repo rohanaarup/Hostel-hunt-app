@@ -1,54 +1,143 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:rohii_hostel_hunt/theme/app_colors.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rohii_hostel_hunt/core/network/api_error.dart';
 import 'package:rohii_hostel_hunt/core/theme/notifiers.dart';
+import 'package:rohii_hostel_hunt/features/auth/presentation/pages/login_page.dart';
+import 'package:rohii_hostel_hunt/features/booking/domain/booking_request.dart';
+import 'package:rohii_hostel_hunt/features/booking/presentation/providers/my_bookings_provider.dart';
+import 'package:rohii_hostel_hunt/features/home/presentation/widgets/hostel_list_states.dart';
+import 'package:rohii_hostel_hunt/features/hostel/presentation/providers/hostel_provider.dart';
+import 'package:rohii_hostel_hunt/features/profile/presentation/providers/user_provider.dart';
+import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 
 // ── Booking Requests ─────────────────────────────────────────────────────────
 
-enum _BookingStatus { pending, approved, rejected }
-
-class _Booking {
-  final String hostelName;
-  final String location;
-  final String price;
-  final String roomType;
-  final String submittedOn;
-  final _BookingStatus status;
-  const _Booking({
-    required this.hostelName, required this.location, required this.price,
-    required this.roomType, required this.submittedOn, required this.status,
-  });
-}
-
-const _kBookings = [
-  _Booking(hostelName: 'Sri Lakshmi Hostels', location: 'Kukatpally, Hyderabad',
-      price: '₹6,500/mo', roomType: '3-Sharing AC Room', submittedOn: 'May 10, 2026', status: _BookingStatus.pending),
-  _Booking(hostelName: 'Green View Residency', location: 'Gachibowli, Hyderabad',
-      price: '₹8,000/mo', roomType: '2-Sharing Premium', submittedOn: 'Apr 28, 2026', status: _BookingStatus.approved),
-  _Booking(hostelName: 'Student Hive', location: 'Madhapur, Hyderabad',
-      price: '₹5,500/mo', roomType: '4-Sharing Non-AC', submittedOn: 'Apr 15, 2026', status: _BookingStatus.rejected),
-];
-
-class BookingRequestsPage extends StatelessWidget {
+/// The signed-in student's bookings, from the server, one page at a time.
+class BookingRequestsPage extends ConsumerStatefulWidget {
   const BookingRequestsPage({super.key});
 
   @override
+  ConsumerState<BookingRequestsPage> createState() => _BookingRequestsPageState();
+}
+
+class _BookingRequestsPageState extends ConsumerState<BookingRequestsPage> {
+  Future<void> _login() async {
+    await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => const LoginPage(popOnSuccess: true)));
+    if (!mounted) return;
+    ref.invalidate(myBookingsProvider);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final bookings = ref.watch(myBookingsProvider);
+    final paging = ref.watch(myBookingsPagingProvider);
+    final user = ref.watch(userProvider);
+    final loggedOut = !user.isLoading && !user.hasError && user.valueOrNull == null;
+    final count = bookings.valueOrNull?.length ?? 0;
+
     return ValueListenableBuilder<bool>(
       valueListenable: themeNotifier,
       builder: (context, isDark, _) => Scaffold(
         backgroundColor: AppColors.appBackground(isDark),
         body: Column(
           children: [
-            _SubHeader(title: 'Booking Requests', subtitle: '${_kBookings.length} requests total', isDark: isDark),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                physics: const BouncingScrollPhysics(),
-                itemCount: _kBookings.length,
-                itemBuilder: (context, i) => _BookingCard(booking: _kBookings[i], isDark: isDark),
-              ),
+            _SubHeader(
+              title: 'Booking Requests',
+              subtitle: loggedOut
+                  ? 'Log in to see them'
+                  : '$count${paging.hasMore ? '+' : ''} booking request${count == 1 && !paging.hasMore ? '' : 's'}',
+              isDark: isDark,
             ),
+            Expanded(child: _body(isDark, bookings, paging, loggedOut)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _body(bool isDark, AsyncValue<List<BookingRequest>> bookings, HostelPaging paging, bool loggedOut) {
+    if (loggedOut) {
+      return _Message(
+        icon: Icons.assignment_outlined,
+        title: 'Log in to see your booking requests',
+        message: 'Your requests are kept with your account.',
+        isDark: isDark,
+        action: FilledButton(onPressed: _login, child: const Text('Log in')),
+      );
+    }
+    return bookings.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => HostelListErrorState(
+        message: userMessageOf(error),
+        isDark: isDark,
+        onRetry: () => ref.read(myBookingsProvider.notifier).refresh(),
+      ),
+      data: (list) {
+        if (list.isEmpty) {
+          return _Message(
+            icon: Icons.assignment_outlined,
+            title: 'No booking requests yet',
+            message: 'When you book a bed, your request and its status show up here.',
+            isDark: isDark,
+          );
+        }
+        return RefreshIndicator(
+          onRefresh: () => ref.read(myBookingsProvider.notifier).refresh(),
+          child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+            itemCount: list.length + 1,
+            itemBuilder: (context, i) {
+              if (i == list.length) {
+                // Built only when the end of the list comes into view: time for the next page.
+                final canLoadMore = paging.hasMore && !paging.loadingMore && paging.loadMoreError == null;
+                if (canLoadMore) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) ref.read(myBookingsProvider.notifier).loadMore();
+                  });
+                }
+                return HostelListFooter(
+                  loading: paging.hasMore && paging.loadMoreError == null,
+                  error: paging.loadMoreError,
+                  isDark: isDark,
+                  onRetry: () => ref.read(myBookingsProvider.notifier).loadMore(),
+                );
+              }
+              return _BookingCard(booking: list[i], isDark: isDark);
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _Message extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+  final bool isDark;
+  final Widget? action;
+  const _Message({required this.icon, required this.title, required this.message, required this.isDark, this.action});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 56, color: AppColors.auburn500.withValues(alpha: 0.6)),
+            const SizedBox(height: 18),
+            Text(title,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textHeading(isDark), fontSize: 18, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 14, height: 1.5)),
+            if (action != null) ...[const SizedBox(height: 20), action!],
           ],
         ),
       ),
@@ -57,36 +146,43 @@ class BookingRequestsPage extends StatelessWidget {
 }
 
 class _BookingCard extends StatelessWidget {
-  final _Booking booking;
+  final BookingRequest booking;
   final bool isDark;
   const _BookingCard({required this.booking, required this.isDark});
 
   Color get _statusColor {
     switch (booking.status) {
-      case _BookingStatus.pending: return AppColors.warning;
-      case _BookingStatus.approved: return AppColors.success;
-      case _BookingStatus.rejected: return AppColors.error;
-    }
-  }
-
-  String get _statusLabel {
-    switch (booking.status) {
-      case _BookingStatus.pending: return 'Pending';
-      case _BookingStatus.approved: return 'Approved';
-      case _BookingStatus.rejected: return 'Rejected';
+      case BookingRequestStatus.pending:
+        return AppColors.warning;
+      case BookingRequestStatus.confirmed:
+      case BookingRequestStatus.paid:
+        return AppColors.success;
+      case BookingRequestStatus.cancelled:
+      case BookingRequestStatus.rejected:
+        return AppColors.error;
+      case BookingRequestStatus.unknown:
+        return AppColors.textSecondary(isDark);
     }
   }
 
   IconData get _statusIcon {
     switch (booking.status) {
-      case _BookingStatus.pending: return Icons.schedule_rounded;
-      case _BookingStatus.approved: return Icons.check_circle_rounded;
-      case _BookingStatus.rejected: return Icons.cancel_rounded;
+      case BookingRequestStatus.pending:
+        return Icons.schedule_rounded;
+      case BookingRequestStatus.confirmed:
+      case BookingRequestStatus.paid:
+        return Icons.check_circle_rounded;
+      case BookingRequestStatus.cancelled:
+      case BookingRequestStatus.rejected:
+        return Icons.cancel_rounded;
+      case BookingRequestStatus.unknown:
+        return Icons.help_outline_rounded;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final submitted = booking.submittedOn;
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
@@ -109,11 +205,12 @@ class _BookingCard extends StatelessWidget {
               children: [
                 Icon(_statusIcon, size: 16, color: _statusColor),
                 const SizedBox(width: 6),
-                Text(_statusLabel,
+                Text(booking.statusLabel,
                     style: TextStyle(color: _statusColor, fontSize: 13, fontWeight: FontWeight.w700)),
                 const Spacer(),
-                Text('Submitted: ${booking.submittedOn}',
-                    style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 11)),
+                if (submitted.isNotEmpty)
+                  Text('Submitted: $submitted',
+                      style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 11)),
               ],
             ),
           ),
@@ -124,50 +221,23 @@ class _BookingCard extends StatelessWidget {
               children: [
                 Text(booking.hostelName,
                     style: TextStyle(color: AppColors.textHeading(isDark), fontSize: 16, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 5),
-                Row(children: [
-                  Icon(Icons.location_on_rounded, size: 13, color: AppColors.auburn500),
-                  const SizedBox(width: 3),
-                  Flexible(child: Text(booking.location, style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 13))),
-                ]),
                 const SizedBox(height: 12),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    _InfoChip(label: booking.roomType, icon: Icons.bed_rounded, isDark: isDark),
-                    const SizedBox(width: 8),
-                    _InfoChip(label: booking.price, icon: Icons.currency_rupee_rounded, isDark: isDark, isOrange: true),
+                    if (booking.roomLabel.isNotEmpty)
+                      _InfoChip(label: booking.roomLabel, icon: Icons.bed_rounded, isDark: isDark),
+                    if (booking.amountLabel.isNotEmpty)
+                      _InfoChip(label: booking.amountLabel, icon: Icons.currency_rupee_rounded, isDark: isDark, isOrange: true),
+                    if (booking.paymentMode == 'online' || booking.paymentMode == 'offline')
+                      _InfoChip(
+                        label: booking.paymentMode == 'online' ? 'Online payment' : 'Pay at hostel',
+                        icon: Icons.payments_rounded,
+                        isDark: isDark,
+                      ),
                   ],
                 ),
-                if (booking.status == _BookingStatus.pending) ...[
-                  const SizedBox(height: 14),
-                  Row(children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => HapticFeedback.lightImpact(),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.error,
-                          side: BorderSide(color: AppColors.error.withValues(alpha: 0.4)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                        child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 2,
-                      child: ElevatedButton(
-                        onPressed: () => HapticFeedback.lightImpact(),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.auburn500, foregroundColor: AppColors.ivory50,
-                          elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                        child: const Text('View Details', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                      ),
-                    ),
-                  ]),
-                ],
               ],
             ),
           ),

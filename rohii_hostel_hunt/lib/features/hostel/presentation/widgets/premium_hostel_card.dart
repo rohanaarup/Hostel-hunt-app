@@ -1,10 +1,13 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
 import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/core/utils/hostel_navigation.dart';
+import 'package:rohii_hostel_hunt/features/wishlist/presentation/providers/saved_provider.dart';
+import 'package:rohii_hostel_hunt/features/wishlist/presentation/save_heart_actions.dart';
 
 /// Premium hostel card — immersive full-image design.
 ///
@@ -15,7 +18,7 @@ import 'package:rohii_hostel_hunt/core/utils/hostel_navigation.dart';
 /// - Floating orange rating badge
 /// - Frosted tag chips
 /// - Staggered entry animation + press scale
-class PremiumHostelCard extends StatefulWidget {
+class PremiumHostelCard extends ConsumerStatefulWidget {
   final Hostel hostel;
   final bool isDark;
   final int index;
@@ -28,10 +31,10 @@ class PremiumHostelCard extends StatefulWidget {
   });
 
   @override
-  State<PremiumHostelCard> createState() => _PremiumHostelCardState();
+  ConsumerState<PremiumHostelCard> createState() => _PremiumHostelCardState();
 }
 
-class _PremiumHostelCardState extends State<PremiumHostelCard>
+class _PremiumHostelCardState extends ConsumerState<PremiumHostelCard>
     with SingleTickerProviderStateMixin {
   bool _isPressed = false;
   bool _wishlistBounce = false;
@@ -71,36 +74,11 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
   }
 
   void _onWishlistTap() {
-    HapticFeedback.mediumImpact();
     setState(() => _wishlistBounce = true);
     Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) setState(() => _wishlistBounce = false);
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_rounded,
-                color: AppColors.ivory50, size: 18),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                '${widget.hostel.name} added to wishlist ❤️',
-                style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.ivory50),
-              ),
-            ),
-          ],
-        ),
-        duration: const Duration(seconds: 2),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      ),
-    );
+    onHeartTapped(context, ref, widget.hostel);
   }
 
   @override
@@ -464,8 +442,10 @@ class _PremiumHostelCardState extends State<PremiumHostelCard>
                 ),
               ],
             ),
-            child: const Icon(
-              Icons.heart_broken_rounded,
+            child: Icon(
+              ref.watch(isSavedProvider(widget.hostel.id))
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
               color: AppColors.ivory50,
               size: 20,
             ),

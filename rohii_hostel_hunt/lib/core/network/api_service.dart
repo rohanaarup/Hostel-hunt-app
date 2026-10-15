@@ -312,6 +312,17 @@ class ApiService {
     });
   }
 
+  /// Authenticated DELETE - returns the raw decoded JSON body.
+  Future<RawApiResponse> authDeleteRaw(String path) async {
+    return _authenticatedRawRequest('DELETE', path, () async {
+      final token = await getAccessToken();
+      return http.delete(
+        Uri.parse('$baseUrl$path'),
+        headers: _headers(accessToken: token),
+      );
+    });
+  }
+
   /// Sends an authenticated request. A 401 triggers one token refresh and one retry.
   ///
   /// Only a refresh the server REJECTS ends the session. If the refresh could not be attempted
