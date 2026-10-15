@@ -18,7 +18,11 @@ class FakeApiService implements ApiService {
   bool loggedIn = false;
   bool tokensCleared = false;
   Future<RawApiResponse> Function(String path)? onAuthGetRaw;
+
+  /// Like [onAuthGetRaw] but also sees the query parameters (paging).
+  Future<RawApiResponse> Function(String path, Map<String, String>? query)? onAuthGetRawWithQuery;
   Future<RawApiResponse> Function(String path, Map<String, dynamic> body)? onAuthPostRaw;
+  Future<RawApiResponse> Function(String path)? onAuthDeleteRaw;
 
   /// Answer PATCH and multipart calls yourself.
   Future<ApiResponse> Function(String path, Map<String, dynamic> body)? onAuthPatch;
@@ -50,7 +54,22 @@ class FakeApiService implements ApiService {
     Map<String, String>? queryParams,
   }) async {
     calls.add('GET $path (auth)');
+    queries.add(queryParams);
+    final withQuery = onAuthGetRawWithQuery;
+    if (withQuery != null) return withQuery(path, queryParams);
     final custom = onAuthGetRaw;
+    if (custom != null) return custom(path);
+    return const RawApiResponse(
+      success: false,
+      message: 'Session expired. Please login again.',
+      statusCode: 401,
+    );
+  }
+
+  @override
+  Future<RawApiResponse> authDeleteRaw(String path) async {
+    calls.add('DELETE $path (auth)');
+    final custom = onAuthDeleteRaw;
     if (custom != null) return custom(path);
     return const RawApiResponse(
       success: false,
@@ -129,6 +148,7 @@ class FakeApiService implements ApiService {
   @override
   Future<void> clearTokens() async {
     tokensCleared = true;
+    loggedIn = false;
   }
 
   @override

@@ -237,35 +237,19 @@ final localitiesProvider = FutureProvider.family<List<LocalityCount>, String>(
 /// ─────────────────────────────────────────────────────────
 /// Hostel Detail Provider (Riverpod)
 /// ─────────────────────────────────────────────────────────
+///
+/// GET /hostels/{id}/ - the full hostel, with its rooms already inside. One request, nothing else:
+/// the screens take the rooms from here instead of asking for them again. Dropped when the
+/// screen closes, so a failure is never remembered.
 
-class HostelDetailNotifier extends FamilyAsyncNotifier<Hostel, int> {
-  @override
-  Future<Hostel> build(int hostelId) {
-    return _fetchDetail(hostelId);
-  }
+final hostelDetailProvider = FutureProvider.autoDispose.family<Hostel, String>((ref, hostelId) async {
+  final response = await ref
+      .read(apiServiceProvider)
+      .getRaw('/hostels/$hostelId/')
+      .timeout(const Duration(seconds: 25), onTimeout: () => throw const ApiException(ApiError.timeout));
 
-  Future<Hostel> _fetchDetail(int hostelId) async {
-    final response = await ref.read(apiServiceProvider).getRaw('/hostels/$hostelId/');
-
-    if (!response.success) {
-      throw response.toException();
-    }
-
-    final body = response.body;
-    if (body is Map<String, dynamic>) {
-      return Hostel.fromJson(body);
-    } else {
-      throw ApiException(ApiError.unreadable(response.statusCode));
-    }
-  }
-
-  Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() => _fetchDetail(arg));
-  }
-}
-
-final hostelDetailProvider =
-    AsyncNotifierProvider.family<HostelDetailNotifier, Hostel, int>(
-  HostelDetailNotifier.new,
-);
+  if (!response.success) throw response.toException();
+  final body = response.body;
+  if (body is! Map<String, dynamic>) throw ApiException(ApiError.unreadable(response.statusCode));
+  return Hostel.fromJson(body);
+});

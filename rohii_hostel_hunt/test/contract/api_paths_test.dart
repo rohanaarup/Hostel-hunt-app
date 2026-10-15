@@ -15,12 +15,13 @@ void main() {
     'authGet': 'GET',
     'authGetRaw': 'GET',
     'authPatch': 'PATCH',
+    'authDeleteRaw': 'DELETE',
   };
 
   Set<String> scanSources() {
     final found = <String>{};
     final call = RegExp(
-      r'''\.(post|authPost|authPostRaw|authMultipartPost|getRaw|authGet|authGetRaw|authPatch)\(\s*['"](/[^'"]*)['"]''',
+      r'''\.(post|authPost|authPostRaw|authMultipartPost|getRaw|authGet|authGetRaw|authPatch|authDeleteRaw)\(\s*['"](/[^'"]*)['"]''',
     );
     for (final file in Directory('lib').listSync(recursive: true).whereType<File>()) {
       if (!file.path.endsWith('.dart')) continue;

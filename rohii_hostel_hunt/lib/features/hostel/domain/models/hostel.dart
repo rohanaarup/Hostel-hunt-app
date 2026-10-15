@@ -10,6 +10,8 @@
 //   - HostelListSerializer  → list endpoint fields
 //   - HostelDetailSerializer → detail endpoint fields (__all__ + images + average_rating)
 
+import 'package:rohii_hostel_hunt/features/hostel/domain/models/room.dart';
+
 /// Nested image model matching `HostelImageSerializer` output.
 class HostelImage {
   final String id;
@@ -61,6 +63,12 @@ class Hostel {
   final bool isAvailable;
   final int availableRooms;
   final int totalRooms;
+
+  /// The rooms that came with the hostel's detail reply (the list reply has none).
+  final List<Room> rooms;
+
+  /// True when [rooms] came from the server, even if the hostel has no rooms yet.
+  final bool roomsLoaded;
   final double averageRating;
   final int imageCount; // from list serializer only
   final String description;
@@ -103,6 +111,8 @@ class Hostel {
     this.isAvailable = true,
     this.availableRooms = 0,
     this.totalRooms = 0,
+    this.rooms = const [],
+    this.roomsLoaded = false,
     this.averageRating = 0.0,
     this.imageCount = 0,
     this.description = '',
@@ -219,6 +229,10 @@ class Hostel {
       isAvailable: json['is_active'] as bool? ?? true,
       availableRooms: (json['available_rooms'] as num?)?.toInt() ?? 0,
       totalRooms: (json['total_rooms'] as num?)?.toInt() ?? 0,
+      rooms: json['rooms'] is List
+          ? (json['rooms'] as List).whereType<Map<String, dynamic>>().map(Room.fromJson).toList()
+          : const [],
+      roomsLoaded: json['rooms'] is List,
       averageRating: _parseDouble(json['average_rating']),
       imageCount: (json['image_count'] as num?)?.toInt() ?? 0,
       description: json['description'] as String? ?? '',
@@ -304,6 +318,14 @@ class Hostel {
       isAvailable: detail.isAvailable,
       availableRooms: detail.availableRooms,
       totalRooms: detail.totalRooms,
+      rooms: detail.roomsLoaded ? detail.rooms : rooms,
+      roomsLoaded: detail.roomsLoaded || roomsLoaded,
+      occupancyTypes: detail.occupancyTypes.isNotEmpty ? detail.occupancyTypes : occupancyTypes,
+      landmark: detail.landmark ?? landmark,
+      rules: detail.rules ?? rules,
+      checkInPolicy: detail.checkInPolicy ?? checkInPolicy,
+      checkOutPolicy: detail.checkOutPolicy ?? checkOutPolicy,
+      googleMapsUrl: detail.googleMapsUrl ?? googleMapsUrl,
       averageRating: detail.averageRating > 0 ? detail.averageRating : averageRating,
       imageCount: detail.imageCount > 0 ? detail.imageCount : imageCount,
       description: detail.description,

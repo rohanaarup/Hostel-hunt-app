@@ -1,0 +1,61 @@
+{
+  "count": 2,
+  "next": null,
+  "previous": null,
+  "wishlist": [
+    {
+      "address": "1 Example Road",
+      "amenities": [
+        "wifi",
+        "ac"
+      ],
+      "bed_count": 8,
+      "city": "Hyderabad",
+      "cover_image": null,
+      "created_at": "2026-10-15T06:29:25.581283Z",
+      "gender_type": "boys",
+      "hostel_city": "Hyderabad",
+      "hostel_id": "da04d121-9fae-4ced-a2d3-ee00a4add8ba",
+      "hostel_locality": "Madhapur",
+      "hostel_name": "Lakeview Hostel",
+      "id": "b726b8ed-80be-4ad7-901b-ce66d1d1c650",
+      "is_active": true,
+      "is_verified": false,
+      "locality": "Madhapur",
+      "name": "Lakeview Hostel",
+      "price_from": 8000.0,
+      "price_to": 8000.0,
+      "room_count": 4,
+      "saved_at": "2026-10-15T06:29:25.914218+00:00",
+      "state": "Telangana",
+      "updated_at": "2026-10-15T06:29:25.581318Z"
+    },
+    {
+      "address": "1 Example Road",
+      "amenities": [
+        "wifi",
+        "ac"
+      ],
+      "bed_count": 8,
+      "city": "Hyderabad",
+      "cover_image": "https://res.cloudinary.com/democloud/image/upload/v1/hostels/sunrise.jpg",
+      "created_at": "2026-10-15T06:29:25.579650Z",
+      "gender_type": "boys",
+      "hostel_city": "Hyderabad",
+      "hostel_id": "7e5f898c-d770-4f73-bcff-92c5f03fc689",
+      "hostel_locality": "Kondapur",
+      "hostel_name": "Sunrise PG",
+      "id": "904fb060-cd36-472f-9970-bcf16bd6679e",
+      "is_active": true,
+      "is_verified": false,
+      "locality": "Kondapur",
+      "name": "Sunrise PG",
+      "price_from": 6500.0,
+      "price_to": 6500.0,
+      "room_count": 4,
+      "saved_at": "2026-10-15T06:29:25.901651+00:00",
+      "state": "Telangana",
+      "updated_at": "2026-10-15T06:29:25.579687Z"
+    }
+  ]
+}

@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/core/network/api_error.dart';
 import 'package:rohii_hostel_hunt/core/network/api_provider.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
+import 'package:rohii_hostel_hunt/features/booking/presentation/providers/my_bookings_provider.dart';
+import 'package:rohii_hostel_hunt/features/wishlist/presentation/providers/saved_provider.dart';
 
 class UserProfile {
   final String id;
@@ -243,6 +245,10 @@ class UserProfileNotifier extends AsyncNotifier<UserProfile?> {
   Future<void> signOut() async {
     await _api.clearTokens();
     state = const AsyncData(null);
+    // The saved hostels and the bookings belong to the person who just left.
+    ref.invalidate(savedIdsProvider);
+    ref.invalidate(savedListProvider);
+    ref.invalidate(myBookingsProvider);
   }
 }
 
