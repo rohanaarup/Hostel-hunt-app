@@ -152,6 +152,7 @@ class _LoadingState extends State<Loading> with TickerProviderStateMixin {
                           ? 'images/logos/logo_icon_dark_bg.png'
                           : 'images/logos/logo_stacked_white_bg.png',
                       width: size.width * 0.42,
+                      cacheWidth: 640,
                       fit: BoxFit.contain,
                     ),
                   ),

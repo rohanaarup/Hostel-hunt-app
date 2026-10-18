@@ -5,6 +5,7 @@ import 'package:rohii_hostel_hunt/core/observability/sentry_setup.dart';
 import 'package:rohii_hostel_hunt/core/router/router.dart';
 import 'package:rohii_hostel_hunt/core/storage/shared_prefs_provider.dart';
 import 'package:rohii_hostel_hunt/core/theme/theme_provider.dart';
+import 'package:rohii_hostel_hunt/core/widgets/connection_banners.dart';
 import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 // Using Django JWT auth - no Firebase needed
@@ -43,6 +44,13 @@ class MyApp extends ConsumerWidget {
       darkTheme: AppColors.darkTheme(),
       themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
       routerConfig: appRouter,
+      // Over every screen: "Waking the server" while a request has waited more than a few seconds.
+      builder: (context, child) => Stack(
+        children: [
+          child ?? const SizedBox.shrink(),
+          const Positioned(top: 0, left: 0, right: 0, child: ServerWakingBanner()),
+        ],
+      ),
     );
   }
 }

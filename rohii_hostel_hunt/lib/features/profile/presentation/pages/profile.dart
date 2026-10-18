@@ -332,6 +332,7 @@ class _ProfileState extends ConsumerState<_ProfileContent> {
                                 ? Image.network(
                                     user!.profilePhotoUrl!,
                                     fit: BoxFit.cover,
+                                    cacheWidth: 300, // drawn about 100 points wide
                                     errorBuilder: (_, __, ___) => Icon(
                                       Icons.person_rounded,
                                       size: 48,

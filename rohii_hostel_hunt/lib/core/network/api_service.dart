@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:math' show Random;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:rohii_hostel_hunt/core/network/api_error.dart';
+import 'package:rohii_hostel_hunt/core/network/http_transport.dart';
 import 'package:rohii_hostel_hunt/core/observability/debug_log.dart';
 import 'package:rohii_hostel_hunt/core/observability/error_reporter.dart';
 import 'package:rohii_hostel_hunt/core/observability/privacy.dart';
@@ -15,12 +17,34 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Handles:
 /// - Base URL configuration (change [baseUrl] for production)
 /// - JWT Bearer token injection for authenticated requests
-/// - Automatic token refresh on 401 responses
+/// - Automatic token refresh on 401 responses (one refresh at a time, shared by every waiting request)
 /// - Consistent request/response envelope
+///
+/// Every request leaves through [HttpTransport] (one shared connection, real timeouts, retry for reads
+/// only, a signal for the "waking the server" banner).
 class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
   ApiService._internal();
+
+  static HttpTransport _transport = HttpTransport();
+
+  /// Swap the transport (tests: no real waiting between retries, a fixed random source).
+  @visibleForTesting
+  static void configureTransport({
+    http.Client Function()? clientFactory,
+    Wait? wait,
+    Random? random,
+    DateTime Function()? now,
+  }) {
+    _transport.reset();
+    _transport = HttpTransport(clientFactory: clientFactory, wait: wait, random: random, now: now);
+  }
+
+  /// Forget the shared connection so the next request builds a new client (tests that switch the
+  /// client with `http.runWithClient`).
+  @visibleForTesting
+  static void resetConnections() => _transport.reset();
 
   static void Function()? _onUnauthorized;
 
@@ -47,14 +71,20 @@ class ApiService {
     defaultValue: '192.168.1.51',
   );
 
+  /// Point the app at any server, for example staging:
+  ///   flutter run --dart-define=API_BASE_URL=https://hostel-hunt-admin-pannel.onrender.com/api/v1
+  /// Wins over everything else when set.
+  static const String _baseUrlOverride = String.fromEnvironment('API_BASE_URL');
+
   /// Platform-aware base URL:
-  ///   Flutter Web  → http://127.0.0.1:8000  (localhost, same machine)
-  ///   Android      → http://LOCAL_API_HOST:8000
-  ///   iOS sim/dev  → http://localhost:8000
-  ///   Production   → https://rohii-backend.onrender.com/api
+  ///   API_BASE_URL set → that
+  ///   Flutter Web      → http://127.0.0.1:8000  (localhost, same machine)
+  ///   Android          → http://LOCAL_API_HOST:8000
+  ///   iOS sim/dev      → http://localhost:8000
+  ///   Production       → https://hostel-hunt-backend.onrender.com/api/v1
   static String get baseUrl {
+    if (_baseUrlOverride.isNotEmpty) return _baseUrlOverride;
     if (!useLocalBackend) {
-      // TODO: Replace with your ACTUAL Render backend URL!
       return 'https://hostel-hunt-backend.onrender.com/api/v1';
     }
 
@@ -66,8 +96,6 @@ class ApiService {
     }
     return 'http://localhost:8000/api/v1';
   }
-
-  static const Duration _timeout = Duration(seconds: 60);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Token Storage
@@ -95,6 +123,39 @@ class ApiService {
     await prefs.remove('jwt_refresh');
     await prefs.remove('user_id');
     await prefs.remove('user_email');
+  }
+
+  /// The saved login, read BEFORE it is cleared, so [revoke] can still use it afterwards. Null when
+  /// nobody is logged in.
+  Future<SessionTokens?> captureSession() async {
+    final access = await getAccessToken();
+    final refresh = await getRefreshToken();
+    if (access == null || access.isEmpty || refresh == null || refresh.isEmpty) return null;
+    return SessionTokens(access, refresh);
+  }
+
+  /// Asks the server to forget this device's refresh token, so a copied token stops working after
+  /// Log Out. Best effort: it never throws, never retries and never blocks the screen for long. The
+  /// login is cleared on the phone whether or not this reaches the server.
+  Future<void> revoke(SessionTokens session) async {
+    try {
+      await _transport.send(
+        'POST',
+        Uri.parse('$baseUrl/auth/logout/'),
+        headers: _headers(accessToken: session.access),
+        body: jsonEncode({'refresh': session.refresh}),
+        timeout: const Duration(seconds: 8),
+        trackSlow: false,
+      );
+    } catch (e) {
+      debugLog('revoke session: ${e.runtimeType}');
+    }
+  }
+
+  /// [captureSession] then [revoke], for callers that do not clear the login in between.
+  Future<void> revokeSession() async {
+    final session = await captureSession();
+    if (session != null) await revoke(session);
   }
 
   Future<void> _handleUnauthorized() async {
@@ -156,16 +217,33 @@ class ApiService {
     return headers;
   }
 
+  /// A read goes through the retrying path, except payment status polling, which keeps its own
+  /// schedule (the poller must never have two requests in flight).
+  static bool _retriesReads(String path) => !path.startsWith('/payments/');
+
+  Future<http.Response> _get(String path, Map<String, String>? queryParams, String? token) {
+    final uri = Uri.parse('$baseUrl$path').replace(queryParameters: queryParams);
+    return _transport.send(
+      'GET',
+      uri,
+      headers: _headers(accessToken: token),
+      retry: _retriesReads(path),
+    );
+  }
+
+  Future<http.Response> _write(String method, String path, Map<String, dynamic> body, String? token) {
+    return _transport.send(
+      method,
+      Uri.parse('$baseUrl$path'),
+      headers: _headers(accessToken: token),
+      body: jsonEncode(body),
+    );
+  }
+
   /// Public POST — no auth header (login, register, OTP)
   Future<ApiResponse> post(String path, Map<String, dynamic> body) async {
     try {
-      final response = await http
-          .post(
-            Uri.parse('$baseUrl$path'),
-            headers: _headers(),
-            body: jsonEncode(body),
-          )
-          .timeout(_timeout);
+      final response = await _write('POST', path, body, null);
       final result = ApiResponse.fromResponse(response);
       _noteResult('POST', path, result.statusCode, result.error);
       return result;
@@ -184,14 +262,7 @@ class ApiService {
 
   /// Authenticated POST — injects JWT Bearer token, retries once on 401
   Future<ApiResponse> authPost(String path, Map<String, dynamic> body) async {
-    return _authenticatedRequest('POST', path, () async {
-      final token = await getAccessToken();
-      return http.post(
-        Uri.parse('$baseUrl$path'),
-        headers: _headers(accessToken: token),
-        body: jsonEncode(body),
-      );
-    });
+    return _authenticatedRequest('POST', path, (token) => _write('POST', path, body, token));
   }
 
   /// Authenticated GET — injects JWT Bearer token, retries once on 401
@@ -199,25 +270,12 @@ class ApiService {
     String path, {
     Map<String, String>? queryParams,
   }) async {
-    return _authenticatedRequest('GET', path, () async {
-      final token = await getAccessToken();
-      final uri = Uri.parse(
-        '$baseUrl$path',
-      ).replace(queryParameters: queryParams);
-      return http.get(uri, headers: _headers(accessToken: token));
-    });
+    return _authenticatedRequest('GET', path, (token) => _get(path, queryParams, token));
   }
 
   /// Authenticated PATCH — sends JSON body, retries once on 401
   Future<ApiResponse> authPatch(String path, Map<String, dynamic> body) async {
-    return _authenticatedRequest('PATCH', path, () async {
-      final token = await getAccessToken();
-      return http.patch(
-        Uri.parse('$baseUrl$path'),
-        headers: _headers(accessToken: token),
-        body: jsonEncode(body),
-      );
-    });
+    return _authenticatedRequest('PATCH', path, (token) => _write('PATCH', path, body, token));
   }
 
   /// Authenticated multipart POST — for file uploads (e.g. profile photo).
@@ -225,7 +283,7 @@ class ApiService {
   /// [onProgress] gets 0.0 to 1.0 as the bytes are handed to the network (approximate: the OS
   /// buffers a little). Completing [cancel] aborts the upload; the result then has
   /// `error.kind == ApiErrorKind.cancelled`. Like every authenticated call it refreshes the token
-  /// and retries once after a 401.
+  /// and retries once after a 401. An upload is never retried after a timeout or a network error.
   Future<ApiResponse> authMultipartPost(
     String path, {
     required String fieldName,
@@ -240,22 +298,38 @@ class ApiService {
         ? MediaType(parts[0], parts[1])
         : MediaType('image', 'jpeg');
 
-    return _authenticatedRequest('POST', path, () async {
+    return _authenticatedRequest('POST', path, (token) async {
       // A multipart request can only be sent once, so each attempt builds its own.
-      final token = await getAccessToken();
-      final request = _UploadRequest('POST', Uri.parse('$baseUrl$path'), onProgress: onProgress, abortTrigger: cancel);
+      final abort = Completer<void>();
+      var timedOut = false;
+      unawaited(cancel?.then((_) {
+        if (!abort.isCompleted) abort.complete();
+      }));
+      final timer = Timer(HttpTransport.uploadTimeout, () {
+        timedOut = true;
+        if (!abort.isCompleted) abort.complete();
+      });
+      final url = Uri.parse('$baseUrl$path');
+      final request = _UploadRequest('POST', url, onProgress: onProgress, abortTrigger: abort.future);
       if (token != null) request.headers['Authorization'] = 'Bearer $token';
       request.files.add(
         http.MultipartFile.fromBytes(fieldName, bytes, filename: filename, contentType: contentType),
       );
-      final sent = request.send();
-      final streamed = cancel == null
-          ? await sent
-          : await Future.any<http.StreamedResponse>([
-              sent,
-              cancel.then<http.StreamedResponse>((_) => throw http.RequestAbortedException()),
-            ]);
-      return http.Response.fromStream(streamed);
+      try {
+        final streamed = await Future.any<http.StreamedResponse>([
+          _transport.client.send(request),
+          abort.future.then<http.StreamedResponse>((_) => throw http.RequestAbortedException(url)),
+        ]);
+        return await Future.any<http.Response>([
+          http.Response.fromStream(streamed),
+          abort.future.then<http.Response>((_) => throw http.RequestAbortedException(url)),
+        ]);
+      } on http.RequestAbortedException {
+        if (timedOut) throw TimeoutException('upload timed out', HttpTransport.uploadTimeout);
+        rethrow;
+      } finally {
+        timer.cancel();
+      }
     });
   }
 
@@ -267,12 +341,7 @@ class ApiService {
     Map<String, String>? queryParams,
   }) async {
     try {
-      final uri = Uri.parse(
-        '$baseUrl$path',
-      ).replace(queryParameters: queryParams);
-      final response = await http
-          .get(uri, headers: _headers())
-          .timeout(_timeout);
+      final response = await _get(path, queryParams, null);
       final result = RawApiResponse.fromResponse(response);
       _noteResult('GET', path, result.statusCode, result.error);
       return result;
@@ -287,13 +356,7 @@ class ApiService {
     String path, {
     Map<String, String>? queryParams,
   }) async {
-    return _authenticatedRawRequest('GET', path, () async {
-      final token = await getAccessToken();
-      final uri = Uri.parse(
-        '$baseUrl$path',
-      ).replace(queryParameters: queryParams);
-      return http.get(uri, headers: _headers(accessToken: token));
-    });
+    return _authenticatedRawRequest('GET', path, (token) => _get(path, queryParams, token));
   }
 
   /// Authenticated POST — returns raw decoded JSON body.
@@ -302,21 +365,14 @@ class ApiService {
     String path,
     Map<String, dynamic> body,
   ) async {
-    return _authenticatedRawRequest('POST', path, () async {
-      final token = await getAccessToken();
-      return http.post(
-        Uri.parse('$baseUrl$path'),
-        headers: _headers(accessToken: token),
-        body: jsonEncode(body),
-      );
-    });
+    return _authenticatedRawRequest('POST', path, (token) => _write('POST', path, body, token));
   }
 
   /// Authenticated DELETE - returns the raw decoded JSON body.
   Future<RawApiResponse> authDeleteRaw(String path) async {
-    return _authenticatedRawRequest('DELETE', path, () async {
-      final token = await getAccessToken();
-      return http.delete(
+    return _authenticatedRawRequest('DELETE', path, (token) {
+      return _transport.send(
+        'DELETE',
         Uri.parse('$baseUrl$path'),
         headers: _headers(accessToken: token),
       );
@@ -328,16 +384,27 @@ class ApiService {
   /// Only a refresh the server REJECTS ends the session. If the refresh could not be attempted
   /// (timeout, no connection, a 5xx while the server wakes up) the tokens are kept and the caller
   /// gets that error instead, so a bad moment on the network never logs anyone out.
+  ///
+  /// Several requests can get a 401 together: the refresh runs once for all of them, and one that
+  /// finds the token already replaced by somebody else's refresh just retries with the new one.
   Future<http.Response> _sendAuthenticated(
-    Future<http.Response> Function() request,
+    Future<http.Response> Function(String? token) request,
   ) async {
-    final response = await request().timeout(_timeout);
+    final used = await getAccessToken();
+    final response = await request(used);
     if (response.statusCode != 401) return response;
 
+    final current = await getAccessToken();
+    if (current != null && current.isNotEmpty && current != used) return request(current);
+
     final refresh = await _refreshToken();
-    if (refresh.ok) return request().timeout(_timeout);
+    if (refresh.ok) return request(await getAccessToken());
     if (refresh.rejected) {
-      await _handleUnauthorized();
+      // Every request that was waiting on this refresh sees the same answer; the session ends once.
+      if (!refresh.sessionEnded) {
+        refresh.sessionEnded = true;
+        await _handleUnauthorized();
+      }
       throw const ApiException(ApiError.sessionExpired);
     }
     throw ApiException(refresh.error!);
@@ -347,7 +414,7 @@ class ApiService {
   Future<ApiResponse> _authenticatedRequest(
     String method,
     String path,
-    Future<http.Response> Function() request,
+    Future<http.Response> Function(String? token) request,
   ) async {
     try {
       final response = await _sendAuthenticated(request);
@@ -367,7 +434,7 @@ class ApiService {
   Future<RawApiResponse> _authenticatedRawRequest(
     String method,
     String path,
-    Future<http.Response> Function() request,
+    Future<http.Response> Function(String? token) request,
   ) async {
     try {
       final response = await _sendAuthenticated(request);
@@ -382,19 +449,33 @@ class ApiService {
     }
   }
 
-  /// Calls /auth/token/refresh/ to get a new access token.
-  Future<_Refresh> _refreshToken() async {
+  Future<_Refresh>? _refreshing;
+
+  /// Gets a new access token from /auth/token/refresh/. Only one refresh runs at a time: a caller
+  /// that arrives while one is under way waits for its result instead of starting another.
+  Future<_Refresh> _refreshToken() {
+    final running = _refreshing;
+    if (running != null) return running;
+    final started = _refreshOnce();
+    _refreshing = started;
+    started.whenComplete(() {
+      if (identical(_refreshing, started)) _refreshing = null;
+    });
+    return started;
+  }
+
+  Future<_Refresh> _refreshOnce() async {
     try {
       final refreshToken = await getRefreshToken();
-      if (refreshToken == null || refreshToken.isEmpty) return const _Refresh.rejected();
+      if (refreshToken == null || refreshToken.isEmpty) return _Refresh.rejected();
 
-      final response = await http
-          .post(
-            Uri.parse('$baseUrl/auth/token/refresh/'),
-            headers: _headers(),
-            body: jsonEncode({'refresh': refreshToken}),
-          )
-          .timeout(_timeout);
+      final response = await _transport.send(
+        'POST',
+        Uri.parse('$baseUrl/auth/token/refresh/'),
+        headers: _headers(),
+        body: jsonEncode({'refresh': refreshToken}),
+        timeout: const Duration(seconds: 20),
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -406,13 +487,13 @@ class ApiService {
           if (newRefresh != null) {
             await prefs.setString('jwt_refresh', newRefresh);
           }
-          return const _Refresh.ok();
+          return _Refresh.ok();
         }
-        return const _Refresh.rejected();
+        return _Refresh.rejected();
       }
       _crumb('POST', '/auth/token/refresh/', response.statusCode);
       // 400, 401 and 403: the server looked at the refresh token and refused it.
-      if (const {400, 401, 403}.contains(response.statusCode)) return const _Refresh.rejected();
+      if (const {400, 401, 403}.contains(response.statusCode)) return _Refresh.rejected();
       // Anything else (5xx, 429...) says nothing about the token: keep it.
       return _Refresh.unreachable(ApiErrorReader.fromResponse(response));
     } catch (e) {
@@ -423,15 +504,25 @@ class ApiService {
   }
 }
 
+/// The two tokens of a login, kept for a moment after Log Out so the server can be told.
+class SessionTokens {
+  const SessionTokens(this.access, this.refresh);
+  final String access;
+  final String refresh;
+}
+
 /// How a token refresh ended.
 class _Refresh {
-  const _Refresh.ok() : ok = true, rejected = false, error = null;
-  const _Refresh.rejected() : ok = false, rejected = true, error = null;
-  const _Refresh.unreachable(ApiError this.error) : ok = false, rejected = false;
+  _Refresh.ok() : ok = true, rejected = false, error = null;
+  _Refresh.rejected() : ok = false, rejected = true, error = null;
+  _Refresh.unreachable(ApiError this.error) : ok = false, rejected = false;
 
   final bool ok;
   final bool rejected;
   final ApiError? error;
+
+  /// Set by the first request that ended the session after a rejection, so the others do not repeat it.
+  bool sessionEnded = false;
 }
 
 /// A multipart request that can report progress and be aborted. (http's own

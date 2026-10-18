@@ -35,6 +35,7 @@ class AuthLogoLockup extends StatelessWidget {
           child: Center(
             child: Image.asset(
               'images/logos/transparent_icon.png', // The transparent logo we copied
+              cacheWidth: 256,
               color: Colors.white,
               fit: BoxFit.contain,
             ),

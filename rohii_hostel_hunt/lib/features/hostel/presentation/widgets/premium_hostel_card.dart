@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:rohii_hostel_hunt/core/widgets/decode_size.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/features/hostel/domain/models/hostel.dart';
@@ -62,7 +63,9 @@ class _PremiumHostelCardState extends ConsumerState<PremiumHostelCard>
       curve: Curves.easeOutCubic,
     ));
 
-    Future.delayed(Duration(milliseconds: 100 * widget.index), () {
+    // The cards slide in one after the other, but only the first few: a card far down the list
+    // (index 30 used to wait 3 seconds) must appear as soon as it scrolls into view.
+    Future.delayed(Duration(milliseconds: 60 * widget.index.clamp(0, 6)), () {
       if (mounted) _entryController.forward();
     });
   }
@@ -222,6 +225,8 @@ class _PremiumHostelCardState extends ConsumerState<PremiumHostelCard>
     return Image.network(
       url,
       fit: BoxFit.cover,
+      // The list cover is a 640 px picture from the server; never decode it larger than the card.
+      cacheWidth: decodeWidth(context, double.infinity, max: 720),
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
         return Container(

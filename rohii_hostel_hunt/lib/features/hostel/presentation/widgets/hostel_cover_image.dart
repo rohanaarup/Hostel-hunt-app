@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rohii_hostel_hunt/core/widgets/decode_size.dart';
 import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 
 /// A hostel's cover picture: loaded from the web when [source] is an address (Cloudinary), from the
@@ -21,7 +22,14 @@ class HostelCoverImage extends StatelessWidget {
 
     if (source.isEmpty) return placeholder(context, '', null);
     if (source.startsWith('http')) {
-      return Image.network(source, width: width, height: height, fit: BoxFit.cover, errorBuilder: placeholder);
+      return Image.network(
+        source,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        cacheWidth: decodeWidth(context, width, max: 720),
+        errorBuilder: placeholder,
+      );
     }
     return Image.asset(source, width: width, height: height, fit: BoxFit.cover, errorBuilder: placeholder);
   }

@@ -55,6 +55,11 @@ class ApiError {
   /// What the server said, for logs and Sentry only. Never shown.
   final String? serverDetail;
 
+  /// The network, not the request, is the problem: offline, too slow, or a server still waking up.
+  /// The only failures where a saved copy of an earlier good answer may be shown instead.
+  bool get isConnectionProblem =>
+      kind == ApiErrorKind.offline || kind == ApiErrorKind.timeout || kind == ApiErrorKind.unavailable;
+
   /// Whether a developer should hear about it. Offline, timeouts, an expired session, throttling,
   /// validation and a server that is still waking up are normal life, not bugs.
   bool get worthReporting =>

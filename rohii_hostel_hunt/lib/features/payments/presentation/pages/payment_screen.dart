@@ -1,8 +1,12 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:rohii_hostel_hunt/core/network/api_provider.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
+import 'package:rohii_hostel_hunt/features/payments/data/payment_status_poller.dart';
+import 'package:rohii_hostel_hunt/features/payments/data/pending_payment_store.dart';
 import 'package:rohii_hostel_hunt/theme/app_colors.dart';
 import 'package:rohii_hostel_hunt/features/payments/presentation/widgets/payment_method_card.dart';
 import 'package:rohii_hostel_hunt/features/payments/presentation/pages/payment_confirming_screen.dart';
@@ -10,17 +14,17 @@ import 'package:rohii_hostel_hunt/features/payments/presentation/pages/payment_s
 
 /// Real payment-method screen: calls the backend to create a Razorpay order
 /// for [bookingId], then lets the student pay via a UPI app or card.
-class PaymentScreen extends StatefulWidget {
+class PaymentScreen extends ConsumerStatefulWidget {
   final String bookingId;
 
   const PaymentScreen({super.key, required this.bookingId});
 
   @override
-  State<PaymentScreen> createState() => _PaymentScreenState();
+  ConsumerState<PaymentScreen> createState() => _PaymentScreenState();
 }
 
-class _PaymentScreenState extends State<PaymentScreen> {
-  final ApiService _api = ApiService();
+class _PaymentScreenState extends ConsumerState<PaymentScreen> {
+  ApiService get _api => ref.read(apiServiceProvider);
   late final Razorpay _razorpay;
 
   bool _loadingOrder = true;
@@ -45,7 +49,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _onCardSuccess);
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _onCardError);
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _onExternalWallet);
-    _createOrder();
+    _resumeOrCreate();
   }
 
   @override
@@ -58,6 +62,49 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final body = res.body;
     if (body is Map && body['error'] is String) return body['error'] as String;
     return res.message.isNotEmpty ? res.message : fallback;
+  }
+
+  /// Opening this screen for a booking whose earlier payment may still be in flight (the app was
+  /// closed or killed while the student was in the UPI app) must NOT create a second order. The
+  /// server is asked about the first payment; only when it is over without money is a new one made.
+  Future<void> _resumeOrCreate() async {
+    final pending = ref.read(pendingPaymentProvider);
+    if (pending == null || pending.bookingId != widget.bookingId) {
+      await _createOrder();
+      return;
+    }
+    setState(() => _loadingOrder = true);
+    final poller = PaymentStatusPoller(check: _fetchStatus);
+    final outcome = await poller.checkOnce(pending.paymentId);
+    if (!mounted) return;
+    switch (outcome) {
+      case PaymentOutcome.success:
+        await ref.read(pendingPaymentProvider.notifier).clear();
+        if (!mounted) return;
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PaymentSuccessScreen()));
+      case PaymentOutcome.failed:
+        await ref.read(pendingPaymentProvider.notifier).clear();
+        await _createOrder();
+      case PaymentOutcome.undecided:
+        // Still open, or the server could not be reached: either way the first payment may yet
+        // complete, so it is watched instead of starting another.
+        final retry = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(builder: (_) => PaymentConfirmingScreen(paymentId: pending.paymentId)),
+        );
+        if (!mounted) return;
+        if (retry == true) {
+          await _createOrder();
+        } else {
+          Navigator.pop(context);
+        }
+    }
+  }
+
+  Future<String?> _fetchStatus(String paymentId) async {
+    final res = await _api.authGetRaw('/payments/status/$paymentId/');
+    if (res.statusCode == 200 && res.body is Map) return (res.body as Map)['status'] as String?;
+    return null;
   }
 
   Future<void> _createOrder() async {
@@ -115,6 +162,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
         return;
       }
 
+      // The student is about to leave the app: write the payment down first, so a phone that kills
+      // the app meanwhile still knows, on return, that this payment has to be checked.
+      await ref.read(pendingPaymentProvider.notifier).mark(paymentId: _paymentId!, bookingId: widget.bookingId);
       await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!mounted) return;
 
@@ -148,6 +198,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (res.statusCode == 200 && res.body is Map) {
       final config = (res.body as Map)['checkout_config'];
       if (config is Map) {
+        await ref.read(pendingPaymentProvider.notifier).mark(paymentId: _paymentId!, bookingId: widget.bookingId);
         _razorpay.open(Map<String, dynamic>.from(config));
       } else {
         _showSnack('Invalid payment configuration returned. Please try again.');
@@ -171,16 +222,29 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final body = res.body;
     final verified = res.statusCode == 200 && body is Map && body['success'] == true;
     if (verified) {
+      await ref.read(pendingPaymentProvider.notifier).clear();
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const PaymentSuccessScreen()),
       );
-    } else {
-      _showSnack(_errorFrom(res, 'Payment verification failed. Please try again.'));
+      return;
+    }
+    // The card WAS charged (Razorpay said so) but the answer to our verify call did not come back
+    // clean: a timeout, a dropped connection. That is not "payment failed". The server also hears
+    // about the payment from Razorpay directly, so the status screen asks it and shows the truth.
+    final retry = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => PaymentConfirmingScreen(paymentId: _paymentId!)),
+    );
+    if (retry == true && mounted) {
+      await _createOrder();
     }
   }
 
   void _onCardError(PaymentFailureResponse response) {
+    // The card sheet closed without a charge (cancelled or declined): nothing is in flight.
+    ref.read(pendingPaymentProvider.notifier).clear();
     _showSnack('Card payment ${response.message ?? "failed"}. You can try again.');
   }
 

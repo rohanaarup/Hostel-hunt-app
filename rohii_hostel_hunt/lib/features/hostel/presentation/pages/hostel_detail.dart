@@ -7,6 +7,7 @@ import 'package:rohii_hostel_hunt/core/network/api_error.dart';
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:rohii_hostel_hunt/core/widgets/decode_size.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -241,6 +242,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                                 _buildImageWidget(
                                   images[isPhoto ? index : 0],
                                   fit: BoxFit.cover,
+                                  decodeWidthPx: decodeWidth(context, 180, max: 540), // a half-width grid tile
                                 ),
                                 if (!isPhoto)
                                   Container(
@@ -458,6 +460,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
                   'images/logos/logo_icon_white_bg.png',
                   width: 28,
                   height: 28,
+                  cacheWidth: 128,
                   fit: BoxFit.contain,
                 ),
                 const SizedBox(height: 2),
@@ -967,6 +970,7 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
     IconData fallbackIcon = Icons.image_not_supported_rounded,
     double fallbackSize = 32,
     Color? fallbackBgColor,
+    int? decodeWidthPx,
   }) {
     final fallback = Container(
       color: fallbackBgColor,
@@ -1000,6 +1004,9 @@ class _HostelDetailPageState extends ConsumerState<HostelDetailPage>
     return Image.network(
       url,
       fit: fit,
+      // Decoded at the size it is drawn: the whole screen width for the big picture, a small
+      // number for thumbnails (decodeWidthPx).
+      cacheWidth: decodeWidthPx ?? decodeWidth(context, double.infinity),
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
         return Center(

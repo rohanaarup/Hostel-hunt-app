@@ -14,8 +14,10 @@ import '../helpers/fake_error_reporter.dart';
 http.Response jsonReply(int status, Object body, {Map<String, String> headers = const {}}) =>
     http.Response(jsonEncode(body), status, headers: {'content-type': 'application/json', ...headers});
 
-Future<T> withClient<T>(MockClientHandler handler, Future<T> Function() body) =>
-    http.runWithClient(body, () => MockClient(handler));
+Future<T> withClient<T>(MockClientHandler handler, Future<T> Function() body) {
+  ApiService.resetConnections(); // the shared client is built inside this zone, so it is this test's mock
+  return http.runWithClient(body, () => MockClient(handler));
+}
 
 const okProfile = {'success': true, 'message': 'Profile updated.', 'data': {'display_name': 'New'}};
 
