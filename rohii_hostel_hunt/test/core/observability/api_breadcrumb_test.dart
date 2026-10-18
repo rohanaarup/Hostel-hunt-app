@@ -26,6 +26,7 @@ void main() {
     Future<T> Function() body,
     Future<http.Response> Function(http.Request) handler,
   ) {
+    ApiService.resetConnections(); // the shared client is built inside this zone, so it is this test's mock
     return http.runWithClient(body, () => MockClient(handler));
   }
 

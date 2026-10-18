@@ -136,6 +136,21 @@ class FakeApiService implements ApiService {
     return post(path, {});
   }
 
+  /// Sessions the app asked the server to revoke at Log Out.
+  final List<SessionTokens> revoked = [];
+
+  @override
+  Future<SessionTokens?> captureSession() async => loggedIn ? const SessionTokens('fake-access', 'fake-refresh') : null;
+
+  @override
+  Future<void> revoke(SessionTokens session) async => revoked.add(session);
+
+  @override
+  Future<void> revokeSession() async {
+    final session = await captureSession();
+    if (session != null) await revoke(session);
+  }
+
   @override
   Future<void> saveTokens(String accessToken, String refreshToken) async {}
 

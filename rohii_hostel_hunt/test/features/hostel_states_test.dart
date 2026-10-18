@@ -73,7 +73,10 @@ void main() {
       await tester.pumpWidget(host(SearchResultCard(hostel: Hostel.fromJson(json), isDark: false)));
 
       final images = tester.widgetList<Image>(find.byType(Image)).toList();
-      expect(images.any((i) => i.image is NetworkImage), isTrue);
+      // A network picture is decoded at the size it is drawn, so it arrives wrapped in a ResizeImage.
+      ImageProvider unwrap(ImageProvider p) => p is ResizeImage ? unwrap(p.imageProvider) : p;
+      expect(images.any((i) => unwrap(i.image) is NetworkImage), isTrue);
+      expect(images.any((i) => i.image is ResizeImage), isTrue);
       expect(images.any((i) => i.image is AssetImage && (i.image as AssetImage).assetName.startsWith('http')), isFalse);
     });
   });

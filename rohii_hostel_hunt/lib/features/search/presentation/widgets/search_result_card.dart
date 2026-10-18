@@ -135,7 +135,7 @@ class _SearchResultCardState extends State<SearchResultCard> {
         );
 
     if (source.startsWith('http')) {
-      return Image.network(source, fit: BoxFit.cover, errorBuilder: placeholder);
+      return Image.network(source, fit: BoxFit.cover, cacheWidth: 360, errorBuilder: placeholder);
     }
     return Image.asset(source, fit: BoxFit.cover, errorBuilder: placeholder);
   }

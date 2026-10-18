@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rohii_hostel_hunt/core/network/api_error.dart';
 import 'package:rohii_hostel_hunt/core/network/api_provider.dart';
 import 'package:rohii_hostel_hunt/core/network/api_service.dart';
 import 'package:rohii_hostel_hunt/features/booking/presentation/providers/my_bookings_provider.dart';
+import 'package:rohii_hostel_hunt/features/payments/data/pending_payment_store.dart';
 import 'package:rohii_hostel_hunt/features/wishlist/presentation/providers/saved_provider.dart';
 
 class UserProfile {
@@ -243,12 +246,18 @@ class UserProfileNotifier extends AsyncNotifier<UserProfile?> {
 
   /// Forgets the saved login and the cached profile.
   Future<void> signOut() async {
+    // The tokens are read first, because the server is told about the logout AFTER they are cleared
+    // here. That call is best effort and never makes the person wait.
+    final session = await _api.captureSession();
     await _api.clearTokens();
+    if (session != null) unawaited(_api.revoke(session));
     state = const AsyncData(null);
     // The saved hostels and the bookings belong to the person who just left.
     ref.invalidate(savedIdsProvider);
     ref.invalidate(savedListProvider);
     ref.invalidate(myBookingsProvider);
+    // A payment note on this phone belongs to the person who just left too.
+    await ref.read(pendingPaymentProvider.notifier).clear();
   }
 }
 

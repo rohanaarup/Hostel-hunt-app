@@ -10,6 +10,8 @@ import 'package:rohii_hostel_hunt/core/theme/theme_provider.dart';
 import 'package:rohii_hostel_hunt/features/search/presentation/widgets/premium_filter_chips.dart';
 import 'package:rohii_hostel_hunt/features/hostel/presentation/widgets/premium_hostel_card.dart';
 import 'package:rohii_hostel_hunt/features/home/presentation/widgets/hostel_list_states.dart';
+import 'package:rohii_hostel_hunt/core/widgets/connection_banners.dart';
+import 'package:rohii_hostel_hunt/features/payments/presentation/widgets/pending_payment_banner.dart';
 import 'package:rohii_hostel_hunt/shared/widgets/premium_bottom_nav.dart';
 
 class Homepage extends ConsumerStatefulWidget {
@@ -82,6 +84,7 @@ class _HomepageState extends ConsumerState<Homepage> {
               },
               isDark: isDark,
             ),
+            const PendingPaymentBanner(),
             _buildHostelList(isDark),
           ],
         ),
@@ -136,7 +139,7 @@ class _HomepageState extends ConsumerState<Homepage> {
             // ── Background Image ──
             Positioned.fill(
               child: Image.asset(
-                'images/backgrounds/homepage_styling_bg.jpg',
+                'images/backgrounds/city_sunset.jpg',
                 fit: BoxFit.cover,
                 alignment: Alignment.topCenter,
               ),
@@ -320,6 +323,7 @@ class _HomepageState extends ConsumerState<Homepage> {
                       isDark
                           ? 'images/logos/logo_icon_dark_bg.png'
                           : 'images/logos/logo_icon_white_bg.png',
+                      cacheWidth: 256,
                       fit: BoxFit.cover,
                       errorBuilder: (_, e, s) => Icon(
                         Icons.home_work_rounded,
@@ -509,11 +513,21 @@ class _HomepageState extends ConsumerState<Homepage> {
           }
 
           // ── Success state — live hostel list, one page at a time ──
+          // When the network failed, the saved copy is shown with a line that says so.
+          final savedAt = ref.watch(hostelListFreshnessProvider);
+          final lead = savedAt == null ? 0 : 1;
           return ListView.builder(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 90),
             physics: const BouncingScrollPhysics(),
-            itemCount: hostels.length + 1,
-            itemBuilder: (context, index) {
+            itemCount: hostels.length + 1 + lead,
+            itemBuilder: (context, position) {
+              if (lead == 1 && position == 0) {
+                return SavedCopyBanner(
+                  savedAt: savedAt!,
+                  onRetry: () => ref.read(hostelListProvider.notifier).refresh(),
+                );
+              }
+              final index = position - lead;
               if (index == hostels.length) {
                 // The footer is only built once the user scrolls close to the end of the list:
                 // that is the moment to ask for the next page.

@@ -429,6 +429,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                               ? 'images/logos/logo_icon_dark_bg.png'
                               : 'images/logos/hostel_hunt_logo_horizontal.png',
                           width: size.width * 0.52,
+                          cacheWidth: 640,
                           fit: BoxFit.contain,
                         ),
                         const SizedBox(height: 16),

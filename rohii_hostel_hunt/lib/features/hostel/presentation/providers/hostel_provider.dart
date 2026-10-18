@@ -1,3 +1,4 @@
+import 'package:rohii_hostel_hunt/core/cache/last_good_cache.dart';
 import 'package:rohii_hostel_hunt/core/network/api_error.dart';
 import 'package:rohii_hostel_hunt/core/observability/error_reporter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,12 +43,35 @@ final hostelPagingProvider = NotifierProvider<HostelPagingNotifier, HostelPaging
   HostelPagingNotifier.new,
 );
 
+/// When the hostels on screen are a SAVED copy (the network failed), the moment that copy was
+/// saved. Null while the list is fresh from the server.
+class HostelListFreshnessNotifier extends Notifier<DateTime?> {
+  @override
+  DateTime? build() => null;
+
+  void set(DateTime? savedAt) => state = savedAt;
+}
+
+final hostelListFreshnessProvider = NotifierProvider<HostelListFreshnessNotifier, DateTime?>(
+  HostelListFreshnessNotifier.new,
+);
+
+/// One page as the server sent it.
+class _Page {
+  const _Page(this.rows, this.hasMore);
+  final List<Map<String, dynamic>> rows;
+  final bool hasMore;
+}
+
 class HostelListNotifier extends AsyncNotifier<List<Hostel>> {
   // Current active chip filters (gender/amenity) sent to the server
   Map<String, String> _chipFilters = {};
 
-  // Chip filters the server cannot do ('Non-AC', 'Premium'); applied to every page here
+  // Chip filters the server cannot do ('Non-AC', 'Premium'); applied here, to every page
   String _clientFilter = 'All';
+
+  // Every page loaded so far, exactly as the server answered (before the local chips).
+  List<Hostel> _loaded = [];
 
   int _nextPage = 2;
   bool _hasMore = false;
@@ -70,10 +94,20 @@ class HostelListNotifier extends AsyncNotifier<List<Hostel>> {
         .set(HostelPaging(hasMore: _hasMore, loadingMore: loadingMore, loadMoreError: error));
   }
 
-  Future<List<Hostel>> _fetchPage(int page) async {
+  /// What the screen shows: the loaded pages with the local chip applied.
+  List<Hostel> _view() {
+    if (_clientFilter == 'Non-AC') {
+      return _loaded.where((h) => !h.amenities.any((a) => a.toLowerCase() == 'ac')).toList();
+    }
+    if (_clientFilter == 'Premium') {
+      return _loaded.where((h) => h.amenities.length >= 5).toList();
+    }
+    return _loaded;
+  }
+
+  Map<String, String> _params(int page) {
     final locState = ref.read(locationProvider);
     final params = <String, String>{..._chipFilters, 'page_size': '$kHostelPageSize'};
-
     if (locState.selectedCity.isNotEmpty) {
       params['city'] = locState.selectedCity;
     }
@@ -83,45 +117,71 @@ class HostelListNotifier extends AsyncNotifier<List<Hostel>> {
     if (page > 1) {
       params['page'] = '$page';
     }
+    return params;
+  }
 
-    final response = await ref.read(apiServiceProvider).getRaw('/hostels/', queryParams: params);
+  Future<_Page> _fetchPage(int page) async {
+    final response = await ref.read(apiServiceProvider).getRaw('/hostels/', queryParams: _params(page));
 
     if (!response.success) {
       throw response.toException();
     }
 
     final body = response.body;
-
-    List<dynamic> results;
+    final List<dynamic> results;
+    final bool hasMore;
     if (body is Map<String, dynamic> && body.containsKey('results')) {
       results = body['results'] as List<dynamic>;
-      _hasMore = body['next'] != null;
+      hasMore = body['next'] != null;
     } else if (body is List) {
       results = body;
-      _hasMore = false;
+      hasMore = false;
     } else {
       throw ApiException(ApiError.unreadable(response.statusCode));
     }
-
-    var hostels = results.map((json) => Hostel.fromJson(json as Map<String, dynamic>)).toList();
-    if (_clientFilter == 'Non-AC') {
-      hostels = hostels.where((h) => !h.amenities.any((a) => a.toLowerCase() == 'ac')).toList();
-    }
-    if (_clientFilter == 'Premium') {
-      hostels = hostels.where((h) => h.amenities.length >= 5).toList();
-    }
-    return hostels;
+    return _Page(results.cast<Map<String, dynamic>>(), hasMore);
   }
 
-  /// Page one of the current location and filters. Resets paging.
+  /// The saved copy is kept per place and per server-side chip.
+  String _cacheKey() {
+    final p = _params(1)..remove('page_size');
+    final parts = (p.entries.toList()..sort((a, b) => a.key.compareTo(b.key))).map((e) => '${e.key}=${e.value}');
+    return 'hostels:${parts.join('&')}';
+  }
+
+  List<Hostel> _parse(List<Map<String, dynamic>> rows) => rows.map(Hostel.fromJson).toList();
+
+  /// Page one of the current location and filters. Resets paging. When the network fails and a saved
+  /// copy exists, that copy is shown (and [hostelListFreshnessProvider] says so) instead of an error.
   Future<List<Hostel>> _fetchFirstPage() async {
     final generation = ++_generation;
     _hasMore = false;
     _nextPage = 2;
     _loadingMore = null;
-    final hostels = await _fetchPage(1);
-    if (generation == _generation) _publishPaging();
-    return hostels;
+    final cache = ref.read(lastGoodCacheProvider);
+    final key = _cacheKey();
+    try {
+      final page = await _fetchPage(1);
+      _hasMore = page.hasMore;
+      _loaded = _parse(page.rows);
+      if (generation == _generation) {
+        _publishPaging();
+        ref.read(hostelListFreshnessProvider.notifier).set(null);
+        await cache?.put(key, {'results': page.rows});
+      }
+      return _view();
+    } on ApiException catch (e) {
+      final saved = e.error.isConnectionProblem ? cache?.get(key) : null;
+      final data = saved?.data;
+      if (saved != null && data is Map && data['results'] is List && generation == _generation) {
+        _hasMore = false;
+        _loaded = _parse((data['results'] as List).cast<Map<String, dynamic>>());
+        _publishPaging();
+        ref.read(hostelListFreshnessProvider.notifier).set(saved.savedAt);
+        return _view();
+      }
+      rethrow;
+    }
   }
 
   /// Append the next page. Does nothing when there is no next page or one is already loading.
@@ -135,11 +195,13 @@ class HostelListNotifier extends AsyncNotifier<List<Hostel>> {
     final load = () async {
       _publishPaging(loadingMore: true);
       try {
-        final more = await _fetchPage(_nextPage);
+        final page = await _fetchPage(_nextPage);
         if (generation != _generation) return; // the list started again meanwhile
         _nextPage++;
-        final seen = current.map((h) => h.id).toSet();
-        state = AsyncData([...current, ...more.where((h) => seen.add(h.id))]);
+        _hasMore = page.hasMore;
+        final seen = _loaded.map((h) => h.id).toSet();
+        _loaded = [..._loaded, ..._parse(page.rows).where((h) => seen.add(h.id))];
+        state = AsyncData(_view());
         _publishPaging();
       } catch (e, st) {
         if (generation != _generation) return;
@@ -153,32 +215,42 @@ class HostelListNotifier extends AsyncNotifier<List<Hostel>> {
     return load;
   }
 
-  /// Apply a filter chip selection and re-fetch
-  Future<void> applyFilter(String filter) async {
-    _clientFilter = filter;
+  static Map<String, String> _serverFiltersFor(String filter) {
     switch (filter) {
-      case 'All':
-        _chipFilters = {};
       case 'Boys':
-        _chipFilters = {'gender_type': 'boys'};
+        return {'gender_type': 'boys'};
       case 'Girls':
-        _chipFilters = {'gender_type': 'girls'};
+        return {'gender_type': 'girls'};
       case 'AC':
-        _chipFilters = {'amenity': 'ac'};
-      case 'Non-AC':
-        _chipFilters = {};
-      case 'Premium':
-        _chipFilters = {};
-      default:
-        _chipFilters = {};
-        _clientFilter = 'All';
+        return {'amenity': 'ac'};
+      default: // All, Non-AC and Premium: nothing the server can do
+        return {};
+    }
+  }
+
+  static bool _same(Map<String, String> a, Map<String, String> b) =>
+      a.length == b.length && a.entries.every((e) => b[e.key] == e.value);
+
+  /// Apply a filter chip selection. A chip the server cannot filter (Non-AC, Premium) and the move
+  /// back to All only change what is shown of the pages already loaded: no request, no blank list.
+  /// A chip the server filters (Boys, Girls, AC) asks for a new first page.
+  Future<void> applyFilter(String filter) async {
+    const known = {'All', 'Boys', 'Girls', 'AC', 'Non-AC', 'Premium'};
+    final chosen = known.contains(filter) ? filter : 'All';
+    final before = _chipFilters;
+    _clientFilter = chosen;
+    _chipFilters = _serverFiltersFor(chosen);
+    if (_same(before, _chipFilters) && state.hasValue) {
+      state = AsyncData(_view());
+      return;
     }
     await refresh();
   }
 
-  /// Retry / refresh with current filters
+  /// Retry / refresh with current filters. Hostels already on screen stay visible while the new
+  /// page loads; with nothing on screen (a first load or an error) the spinner shows.
   Future<void> refresh() async {
-    state = const AsyncLoading();
+    state = state.hasValue ? const AsyncLoading<List<Hostel>>().copyWithPrevious(state) : const AsyncLoading();
     state = await AsyncValue.guard(_fetchFirstPage);
   }
 }
@@ -215,22 +287,26 @@ class LocalityCount {
 final localitiesProvider = FutureProvider.family<List<LocalityCount>, String>(
   (ref, city) async {
     final api = ref.read(apiServiceProvider);
+    final cache = ref.read(lastGoodCacheProvider);
+    final key = 'localities:$city';
     final response = await api.getRaw(
       '/hostels/localities/',
       queryParams: city.isNotEmpty ? {'city': city} : null,
     );
 
+    List<LocalityCount> parse(Object? body) => body is List
+        ? body.whereType<Map<String, dynamic>>().map(LocalityCount.fromJson).toList()
+        : <LocalityCount>[];
+
     if (!response.success) {
+      final saved = response.error?.isConnectionProblem == true ? cache?.get(key) : null;
+      if (saved != null) return parse(saved.data);
       throw response.toException();
     }
 
     final body = response.body;
-    if (body is List) {
-      return body
-          .map((e) => LocalityCount.fromJson(e as Map<String, dynamic>))
-          .toList();
-    }
-    return [];
+    if (body is List) await cache?.put(key, body);
+    return parse(body);
   },
 );
 
