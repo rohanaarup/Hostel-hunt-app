@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Release signing material must never be committed (the build reads it from environment variables)
+*.jks
+*.keystore
+*.p12
+key.properties

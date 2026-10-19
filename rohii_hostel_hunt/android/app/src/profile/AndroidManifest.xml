@@ -4,4 +4,8 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Plain HTTP is for development only: the local Django server (http://<laptop address>:8000).
+         It is NOT in the main manifest, so a release build can only talk HTTPS. -->
+    <application android:usesCleartextTraffic="true" />
 </manifest>

@@ -1,9 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="rohii_hostel_hunt"
+        android:label="Hostel Hunt"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
+        android:allowBackup="false">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -48,6 +48,17 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- Package visibility (Android 11+): without these, canLaunchUrl() says "no app" for UPI and web links.
+             payment_screen.dart checks the UPI link before opening the UPI app; booking_success_screen.dart
+             checks the WhatsApp link. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="upi" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
         <!-- Lets the app see which speech recognition services are installed (Android 11+) -->
         <intent>
             <action android:name="android.speech.RecognitionService" />
